@@ -38,7 +38,7 @@ export default function PaginaPersonalizar() {
 
     if (!resultado.success) {
       const campos: Errores = {};
-      resultado.error.errors.forEach((e) => {
+      resultado.error.issues.forEach((e) => {
         const campo = e.path[0] as keyof Errores;
         campos[campo] = e.message;
       });

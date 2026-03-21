@@ -27,7 +27,7 @@ async function obtenerCategorias(): Promise<{ data: Categoria[] | null; error: s
 
     if (error) return { data: null, error: error.message };
     return { data: data ?? [], error: null };
-  } catch (err) {
+  } catch {
     return { data: null, error: 'No se pudo conectar con la base de datos.' };
   }
 }

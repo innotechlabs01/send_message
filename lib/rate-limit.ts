@@ -14,18 +14,8 @@ function getRedis(): Redis {
 }
 
 // 20 req/min por IP para rutas públicas
-const publicLimiter = new Ratelimit({
-  redis: { pipeline: () => getRedis().pipeline() } as unknown as Redis,
-  limiter: Ratelimit.slidingWindow(20, '1 m'),
-  prefix: 'rl:public',
-});
-
 // 100 req/min por API Key para rutas B2B
-const apiLimiter = new Ratelimit({
-  redis: { pipeline: () => getRedis().pipeline() } as unknown as Redis,
-  limiter: Ratelimit.slidingWindow(100, '1 m'),
-  prefix: 'rl:api',
-});
+// Los limiters se crean dinámicamente en checkRateLimit
 
 interface RateLimitResult {
   limited: boolean;

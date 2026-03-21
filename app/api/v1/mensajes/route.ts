@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   const parsed = crearMensajeSchema.safeParse(body);
   if (!parsed.success) {
     const campos: Record<string, string> = {};
-    parsed.error.errors.forEach((e) => { campos[String(e.path[0])] = e.message; });
+    parsed.error.issues.forEach((e) => { campos[String(e.path[0])] = e.message; });
     const error: ApiError = {
       error: { code: 'PAYLOAD_INVALIDO', message: 'Datos del mensaje inválidos.', fields: campos },
     };

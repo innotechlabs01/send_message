@@ -42,7 +42,7 @@ export default function SendForm({ datosIniciales }: SendFormProps) {
 
     if (!resultado.success) {
       const campos: Errores = {};
-      resultado.error.errors.forEach((err) => {
+      resultado.error.issues.forEach((err) => {
         const campo = err.path[0] as keyof Errores;
         if (campo in { fecha_envio: 1, celular_destinatario: 1, celular_remitente: 1 }) {
           campos[campo] = err.message;
