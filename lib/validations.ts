@@ -1,0 +1,56 @@
+import { z } from 'zod';
+
+/** Celular colombiano: empieza en 3, exactamente 10 dígitos */
+export const celularColombiano = z
+  .string()
+  .regex(/^3[0-9]{9}$/, 'Ingresa un número de celular colombiano válido (10 dígitos, empieza en 3)');
+
+/** Fecha futura (mínimo hoy) */
+const fechaFutura = z
+  .string()
+  .min(1, 'La fecha de envío es requerida')
+  .refine((val) => {
+    const fecha = new Date(val);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    return fecha >= hoy;
+  }, 'La fecha de envío debe ser hoy o en el futuro');
+
+/** Schema para personalizar el mensaje */
+export const personalizarSchema = z.object({
+  nombre_destinatario: z
+    .string()
+    .min(1, 'El nombre del destinatario es requerido')
+    .max(100, 'Máximo 100 caracteres')
+    .transform((v) => v.trim()),
+  nombre_remitente: z
+    .string()
+    .min(1, 'Tu nombre es requerido')
+    .max(100, 'Máximo 100 caracteres')
+    .transform((v) => v.trim()),
+});
+
+/** Schema completo para crear un mensaje programado */
+export const crearMensajeSchema = z.object({
+  nombre_destinatario: z
+    .string()
+    .min(1, 'El nombre del destinatario es requerido')
+    .max(100, 'Máximo 100 caracteres')
+    .transform((v) => v.trim()),
+  nombre_remitente: z
+    .string()
+    .min(1, 'Tu nombre es requerido')
+    .max(100, 'Máximo 100 caracteres')
+    .transform((v) => v.trim()),
+  texto_final: z
+    .string()
+    .min(1, 'El texto del mensaje es requerido')
+    .max(1600, 'El mensaje no puede superar 1600 caracteres'),
+  celular_destinatario: celularColombiano,
+  celular_remitente: celularColombiano,
+  fecha_envio: fechaFutura,
+});
+
+export type PersonalizarInput = z.input<typeof personalizarSchema>;
+export type CrearMensajeInput = z.input<typeof crearMensajeSchema>;
+export type CrearMensajeOutput = z.output<typeof crearMensajeSchema>;

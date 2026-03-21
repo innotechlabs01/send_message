@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /personalizar
+Disallow: /envio
+Disallow: /pago
+Disallow: /confirmacion
+
+Sitemap: https://consentiido.com/sitemap.xml
