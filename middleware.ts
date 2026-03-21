@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 import { checkRateLimit } from '@/lib/rate-limit';
 
 const CABECERAS_SEGURIDAD: Record<string, string> = {
@@ -20,12 +21,41 @@ const CABECERAS_SEGURIDAD: Record<string, string> = {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const response = NextResponse.next();
+
+  // Crear respuesta base para poder mutar cookies (necesario para Supabase SSR)
+  let response = NextResponse.next({ request });
 
   // Aplicar cabeceras de seguridad a todas las rutas
   Object.entries(CABECERAS_SEGURIDAD).forEach(([key, value]) => {
     response.headers.set(key, value);
   });
+
+  // Proteger /envio: requiere sesión activa
+  if (pathname.startsWith('/envio')) {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll: () => request.cookies.getAll(),
+          setAll: (cookiesToSet) => {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              request.cookies.set(name, value);
+              response.cookies.set(name, value, options);
+            });
+          },
+        },
+      }
+    );
+
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/auth';
+      return NextResponse.redirect(url);
+    }
+  }
 
   // Rate limiting solo en rutas API
   if (pathname.startsWith('/api/')) {

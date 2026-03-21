@@ -24,7 +24,7 @@ CREATE INDEX idx_mensajes_categoria ON mensajes_prediseniados(categoria_id) WHER
 -- Tabla: api_keys (debe existir antes de mensajes_programados por la FK)
 CREATE TABLE api_keys (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  empresa_id  UUID NOT NULL,
+  empresa_id  UUID NOT NULL UNIQUE,
   nombre      TEXT NOT NULL,
   key_hash    TEXT NOT NULL UNIQUE,
   activa      BOOLEAN NOT NULL DEFAULT true,

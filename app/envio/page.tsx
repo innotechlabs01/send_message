@@ -25,6 +25,8 @@ export default function PaginaEnvio() {
       router.replace('/categorias');
       return;
     }
+    // Guardar destino para redirect post-auth
+    sessionStorage.setItem('auth_redirect', '/envio');
     setDatos(parsed);
   }, [router]);
 
