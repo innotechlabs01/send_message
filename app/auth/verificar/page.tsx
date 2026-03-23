@@ -26,8 +26,8 @@ export default function PaginaVerificar() {
     e.preventDefault();
     setError('');
 
-    if (!/^\d{6}$/.test(codigo)) {
-      setError('El código debe tener 6 dígitos');
+    if (!codigo) {
+      setError('Ingresa el código de verificación');
       return;
     }
 
