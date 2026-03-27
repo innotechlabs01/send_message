@@ -33,6 +33,20 @@ export default function SendForm({ datosIniciales }: SendFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    const campos: Errores = {};
+
+    if (celularDestinatario.length > 0 && !celularDestinatario.startsWith('3')) {
+      campos.celular_destinatario = 'Aún no tenemos disponible el servicio fuera de Colombia';
+    }
+    if (celularRemitente.length > 0 && !celularRemitente.startsWith('3')) {
+      campos.celular_remitente = 'Aún no tenemos disponible el servicio fuera de Colombia';
+    }
+
+    if (Object.keys(campos).length > 0) {
+      setErrores(campos);
+      return;
+    }
+
     const resultado = crearMensajeSchema.safeParse({
       ...datosIniciales,
       fecha_envio: fechaEnvio,
@@ -88,7 +102,7 @@ export default function SendForm({ datosIniciales }: SendFormProps) {
         value={celularRemitente}
         onChange={(e) => setCelularRemitente(e.target.value.replace(/\D/g, ''))}
         error={errores.celular_remitente}
-        hint="Te avisaremos un día antes del envío"
+        hint="10 dígitos, empieza en 3"
         inputMode="numeric"
       />
       <Button type="submit" variante="primary" className="w-full mt-2">

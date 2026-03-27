@@ -1,9 +1,10 @@
 import { z } from 'zod';
 
-/** Celular colombiano: empieza en 3, exactamente 10 dígitos */
+/** Celular colombiano: 10 dígitos que empiezan en 3, se transforma a +57 */
 export const celularColombiano = z
   .string()
-  .regex(/^3[0-9]{9}$/, 'Ingresa un número de celular colombiano válido (10 dígitos, empieza en 3)');
+  .regex(/^3[0-9]{9}$/, 'Aún no tenemos disponible el servicio fuera de Colombia')
+  .transform((val) => `+57${val}`);
 
 /** Fecha futura (mínimo hoy) */
 const fechaFutura = z

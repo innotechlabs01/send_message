@@ -8,6 +8,14 @@ describe('celularColombiano', () => {
     expect(celularColombiano.safeParse('3219876543').success).toBe(true);
   });
 
+  it('transforma el número agregando +57', () => {
+    const result = celularColombiano.safeParse('3001234567');
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toBe('+573001234567');
+    }
+  });
+
   it('rechaza números que no empiezan en 3', () => {
     expect(celularColombiano.safeParse('2001234567').success).toBe(false);
     expect(celularColombiano.safeParse('1234567890').success).toBe(false);
@@ -25,11 +33,14 @@ describe('celularColombiano', () => {
     expect(celularColombiano.safeParse('300123456a').success).toBe(false);
   });
 
-  it('propiedad: todo número de 10 dígitos que empieza en 3 es válido', () => {
+  it('propiedad: todo número de 10 dígitos que empieza en 3 es válido y se transforma', () => {
     fc.assert(
       fc.property(
         fc.stringMatching(/^3[0-9]{9}$/),
-        (num) => celularColombiano.safeParse(num).success === true
+        (num) => {
+          const result = celularColombiano.safeParse(num);
+          return result.success === true && result.data === `+57${num}`;
+        }
       ),
       { numRuns: 100 }
     );
@@ -82,7 +93,7 @@ describe('crearMensajeSchema', () => {
     expect(r.success).toBe(false);
   });
 
-  it('rechaza celular inválido', () => {
+  it('rechaza celular que no es de Colombia', () => {
     const r = crearMensajeSchema.safeParse({ ...base, celular_destinatario: '1234567890' });
     expect(r.success).toBe(false);
   });
