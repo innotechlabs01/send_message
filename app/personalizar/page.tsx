@@ -98,22 +98,24 @@ export default function PaginaPersonalizar() {
         </Button>
       </form>
 
-      {/* Modal de vista previa */}
-      <MessagePreview
-        abierto={modalAbierto}
-        datos={{
-          nombreDestinatario,
-          nombreRemitente,
-          textoBase: mensaje.texto,
-        }}
-        onCerrar={() => setModalAbierto(false)}
-        onAceptar={(textoFinal) => {
-          sessionStorage.setItem(
-            'datos_envio',
-            JSON.stringify({ texto_final: textoFinal, nombre_destinatario: nombreDestinatario, nombre_remitente: nombreRemitente })
-          );
-        }}
-      />
+       {/* Modal de vista previa */}
+       <MessagePreview
+         abierto={modalAbierto}
+         datos={{
+           nombreDestinatario,
+           nombreRemitente,
+           textoBase: mensaje.texto,
+         }}
+         onCerrar={() => setModalAbierto(false)}
+         onAceptar={(textoFinal) => {
+           sessionStorage.setItem(
+             'datos_envio',
+             JSON.stringify({ texto_final: textoFinal, nombre_destinatario: nombreDestinatario, nombre_remitente: nombreRemitente })
+           );
+           setModalAbierto(false);
+           router.push('/envio');
+         }}
+       />
     </main>
   );
 }
