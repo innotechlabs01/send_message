@@ -49,15 +49,18 @@ export function FormularioContacto({
     });
 
     try {
-      const validated = datosContactoSchema.parse(formData);
+      datosContactoSchema.parse(formData);
       setErrors({});
       onSubmit(formData);
-    } catch (error: any) {
+    } catch (error) {
       const newErrors: Record<string, string> = {};
-      if (error.errors) {
-        error.errors.forEach((err: any) => {
-          newErrors[err.path[0]] = err.message;
-        });
+      if (error instanceof Error && 'errors' in error) {
+        const zodError = error as { errors: Array<{ path: Array<string | number>; message: string }> };
+        if (Array.isArray(zodError.errors)) {
+          zodError.errors.forEach((err: { path: Array<string | number>; message: string }) => {
+            newErrors[String(err.path[0])] = err.message;
+          });
+        }
       }
       setErrors(newErrors);
     }

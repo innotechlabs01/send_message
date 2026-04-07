@@ -1,13 +1,12 @@
 'use client';
 
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect } from 'react';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
 
 function ContenidoConfirmacion() {
   const params = useSearchParams();
-  const router = useRouter();
   
   // Bold redirige con: ?bold-order-id=xxx&bold-tx-status=approved|rejected|pending
   const txStatus = params.get('bold-tx-status');

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { FormularioContacto } from '@/components/FormularioContacto';
-import { DatosContactoInput } from '@/lib/validations';
+import type { DatosContactoInput } from '@/lib/validations';
 
 interface DatosEnvio {
   texto_final: string;
@@ -37,7 +37,6 @@ export default function PaymentSummary() {
   const [guardando, setGuardando] = useState(false);
   const [listo, setListo] = useState(false);
   const [formularioEnviado, setFormularioEnviado] = useState(false);
-  const [datosContacto, setDatosContacto] = useState<DatosContactoInput | null>(null);
   const scriptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,7 +49,6 @@ export default function PaymentSummary() {
 
   // Cuando el formulario de contacto se envía, guardar datos y obtener config de Bold
   const handleFormularioContactoSubmit = async (datosForm: DatosContactoInput) => {
-    setDatosContacto(datosForm);
     setFormularioEnviado(true);
     setGuardando(true);
     setError(null);
