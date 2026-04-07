@@ -18,6 +18,11 @@ interface MessagePreviewProps {
   onAceptar: (textoFinal: string) => void;
 }
 
+function enmascararCelular(cel: string): string {
+  if (!cel || cel.length < 4) return '******';
+  return `******${cel.slice(-4)}`;
+}
+
 function construirMensaje(datos: DatosPrevia): string {
   const texto = datos.textoBase
     .replace(/\{destinatario\}/gi, datos.nombreDestinatario)
@@ -64,7 +69,7 @@ export default function MessagePreview({ abierto, datos, onCerrar, onAceptar }: 
         </div>
 
         {/* Datos de envío */}
-        {/* <div className="bg-white border border-[#CCCCCC] rounded-lg p-4 space-y-2 text-sm">
+        <div className="bg-white border border-[#CCCCCC] rounded-lg p-4 space-y-2 text-sm">
           {datos.fechaEnvio && (
             <div className="flex justify-between">
               <span className="text-[#666666]">Fecha de envío:</span>
@@ -83,7 +88,7 @@ export default function MessagePreview({ abierto, datos, onCerrar, onAceptar }: 
               </span>
             </div>
           )}
-        </div> */}
+        </div>
 
         {/* Acciones */}
         <div className="flex gap-3">
