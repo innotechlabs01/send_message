@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { crearMensajeSchema } from '@/lib/validations';
+import { enviarDatosSchema } from '@/lib/validations';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 
@@ -47,7 +47,7 @@ export default function SendForm({ datosIniciales }: SendFormProps) {
       return;
     }
 
-    const resultado = crearMensajeSchema.safeParse({
+    const resultado = enviarDatosSchema.safeParse({
       ...datosIniciales,
       fecha_envio: fechaEnvio,
       celular_destinatario: celularDestinatario,
