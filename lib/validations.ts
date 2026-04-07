@@ -23,13 +23,13 @@ export const personalizarSchema = z.object({
     .string()
     .min(1, 'El nombre del destinatario es requerido')
     .max(100, 'Máximo 100 caracteres')
-    .regex(/^[a-zA-Z\s]+$/, 'Solo se permiten letras y espacios')
+    .regex(/^[a-zA-Z]([a-zA-Z\s]*[a-zA-Z])?$/, 'Solo se permiten letras y espacios (mínimo una letra)')
     .transform((v) => v.trim()),
   nombre_remitente: z
     .string()
     .min(1, 'Tu nombre es requerido')
     .max(100, 'Máximo 100 caracteres')
-    .regex(/^[a-zA-Z\s]+$/, 'Solo se permiten letras y espacios')
+    .regex(/^[a-zA-Z]([a-zA-Z\s]*[a-zA-Z])?$/, 'Solo se permiten letras y espacios (mínimo una letra)')
     .transform((v) => v.trim()),
 });
 
@@ -39,13 +39,13 @@ export const crearMensajeSchema = z.object({
     .string()
     .min(1, 'El nombre del destinatario es requerido')
     .max(100, 'Máximo 100 caracteres')
-    .regex(/^[a-zA-Z\s]+$/, 'Solo se permiten letras y espacios')
+    .regex(/^[a-zA-Z]([a-zA-Z\s]*[a-zA-Z])?$/, 'Solo se permiten letras y espacios (mínimo una letra)')
     .transform((v) => v.trim()),
   nombre_remitente: z
     .string()
     .min(1, 'Tu nombre es requerido')
     .max(100, 'Máximo 100 caracteres')
-    .regex(/^[a-zA-Z\s]+$/, 'Solo se permiten letras y espacios')
+    .regex(/^[a-zA-Z]([a-zA-Z\s]*[a-zA-Z])?$/, 'Solo se permiten letras y espacios (mínimo una letra)')
     .transform((v) => v.trim()),
   texto_final: z
     .string()
@@ -62,7 +62,7 @@ export const crearMensajeSchema = z.object({
     .string()
     .min(3, 'Mínimo 3 caracteres')
     .max(100, 'Máximo 100 caracteres')
-    .regex(/^[a-zA-Z\s]+$/, 'Solo se permiten letras y espacios')
+    .regex(/^[a-zA-Z]([a-zA-Z\s]*[a-zA-Z])?$/, 'Solo se permiten letras y espacios (mínimo una letra)')
     .transform((v) => v.trim()),
   telefono_contacto: celularColombiano,
 });
@@ -81,7 +81,7 @@ export const datosContactoSchema = z.object({
     .string()
     .min(3, 'Mínimo 3 caracteres')
     .max(100, 'Máximo 100 caracteres')
-    .regex(/^[a-zA-Z\s]+$/, 'Solo se permiten letras y espacios')
+    .regex(/^[a-zA-Z]([a-zA-Z\s]*[a-zA-Z])?$/, 'Solo se permiten letras y espacios (mínimo una letra)')
     .transform((v) => v.trim()),
   telefono_contacto: celularColombiano,
 });

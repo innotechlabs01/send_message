@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 
@@ -27,13 +26,7 @@ function construirMensaje(datos: DatosPrevia): string {
   return `Hola ${datos.nombreDestinatario}\n\n${texto}\n\nEste mensaje es enviado por ${datos.nombreRemitente}`;
 }
 
-function enmascararCelular(celular: string): string {
-  if (!celular || celular.length < 4) return '******';
-  return `******${celular.slice(-4)}`;
-}
-
 export default function MessagePreview({ abierto, datos, onCerrar, onAceptar }: MessagePreviewProps) {
-  const router = useRouter();
   const textoFinal = construirMensaje(datos);
   const partes = textoFinal.split('\n\n');
 
@@ -46,7 +39,6 @@ export default function MessagePreview({ abierto, datos, onCerrar, onAceptar }: 
     const datos_envio = JSON.parse(sessionStorage.getItem('datos_envio') ?? '{}');
     sessionStorage.setItem('datos_envio', JSON.stringify({ ...datos_envio, texto_final: textoFinal }));
     onAceptar(textoFinal);
-    router.push('/envio');
   };
 
   return (
@@ -72,7 +64,7 @@ export default function MessagePreview({ abierto, datos, onCerrar, onAceptar }: 
         </div>
 
         {/* Datos de envío */}
-        <div className="bg-white border border-[#CCCCCC] rounded-lg p-4 space-y-2 text-sm">
+        {/* <div className="bg-white border border-[#CCCCCC] rounded-lg p-4 space-y-2 text-sm">
           {datos.fechaEnvio && (
             <div className="flex justify-between">
               <span className="text-[#666666]">Fecha de envío:</span>
@@ -91,7 +83,7 @@ export default function MessagePreview({ abierto, datos, onCerrar, onAceptar }: 
               </span>
             </div>
           )}
-        </div>
+        </div> */}
 
         {/* Acciones */}
         <div className="flex gap-3">
