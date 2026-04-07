@@ -68,7 +68,12 @@ export const crearMensajeSchema = z.object({
     .regex(/^[a-zA-Z]([a-zA-Z\s]*[a-zA-Z])?$/, 'Solo se permiten letras y espacios (mínimo una letra)')
     .optional()
     .transform((v) => v?.trim()),
-  telefono_contacto: celularColombiano.optional(),
+  telefono_contacto: z
+    .string()
+    .regex(/^[0-9]{10}$/, 'Teléfono debe tener exactamente 10 dígitos')
+    .regex(/^3/, 'El teléfono debe comenzar con 3 (Colombia)')
+    .optional()
+    .transform((val) => val ? `+57${val}` : undefined),
 });
 
 export type PersonalizarInput = z.input<typeof personalizarSchema>;

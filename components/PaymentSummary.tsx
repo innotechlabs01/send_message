@@ -164,13 +164,33 @@ export default function PaymentSummary() {
               </span>
             </div>
             {boldConfig && (
-              <div className="flex justify-between border-t border-[#CCCCCC] pt-2 mt-2">
-                <span className="font-semibold text-[#333333]">Total:</span>
-                <span className="font-bold text-[#4A90D9]">
-                  {boldConfig.amount.toLocaleString('es-CO', {
-                    style: 'currency', currency: 'COP', minimumFractionDigits: 0,
-                  })}
-                </span>
+              <div className="border-t border-[#CCCCCC] pt-2 mt-2 space-y-2">
+                {/* Desglose de precio */}
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#666666]">Precio base:</span>
+                  <span className="text-[#333333]">
+                    {(2000).toLocaleString('es-CO', {
+                      style: 'currency', currency: 'COP', minimumFractionDigits: 0,
+                    })}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#666666]">IVA (19%):</span>
+                  <span className="text-[#333333]">
+                    {(380).toLocaleString('es-CO', {
+                      style: 'currency', currency: 'COP', minimumFractionDigits: 0,
+                    })}
+                  </span>
+                </div>
+                {/* Total */}
+                <div className="flex justify-between border-t border-[#CCCCCC] pt-2">
+                  <span className="font-semibold text-[#333333]">Total a pagar:</span>
+                  <span className="font-bold text-[#4A90D9]">
+                    {boldConfig.amount.toLocaleString('es-CO', {
+                      style: 'currency', currency: 'COP', minimumFractionDigits: 0,
+                    })}
+                  </span>
+                </div>
               </div>
             )}
           </div>
