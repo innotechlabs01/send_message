@@ -70,10 +70,9 @@ export const crearMensajeSchema = z.object({
     .transform((v) => v?.trim()),
   telefono_contacto: z
     .string()
-    .regex(/^[0-9]{10}$/, 'Teléfono debe tener exactamente 10 dígitos')
-    .regex(/^3/, 'El teléfono debe comenzar con 3 (Colombia)')
-    .optional()
-    .transform((val) => val ? `+57${val}` : undefined),
+    .regex(/^3[0-9]{9}$/, 'Teléfono debe tener exactamente 10 dígitos comenzando con 3')
+    .transform((val) => `+57${val}`)
+    .optional(),
 });
 
 export type PersonalizarInput = z.input<typeof personalizarSchema>;
