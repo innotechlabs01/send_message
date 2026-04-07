@@ -11,7 +11,9 @@ const fechaFutura = z
   .string()
   .min(1, 'La fecha de envío es requerida')
   .refine((val) => {
-    const fecha = new Date(val);
+    // Parsear la fecha en formato YYYY-MM-DD sin conversión a UTC
+    const [year, month, day] = val.split('-').map(Number);
+    const fecha = new Date(year, month - 1, day);
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     return fecha >= hoy;
