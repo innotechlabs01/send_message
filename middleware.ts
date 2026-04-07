@@ -30,32 +30,7 @@ export async function middleware(request: NextRequest) {
     response.headers.set(key, value);
   });
 
-  // Proteger /envio: requiere sesión activa
-  if (pathname.startsWith('/envio')) {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => request.cookies.getAll(),
-          setAll: (cookiesToSet) => {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              request.cookies.set(name, value);
-              response.cookies.set(name, value, options);
-            });
-          },
-        },
-      }
-    );
-
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/auth';
-      return NextResponse.redirect(url);
-    }
-  }
+  // Acceso público a todas las rutas (sin autenticación OTP)
 
   // Rate limiting solo en rutas API
   if (pathname.startsWith('/api/')) {

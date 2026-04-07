@@ -50,8 +50,35 @@ export const crearMensajeSchema = z.object({
   celular_destinatario: celularColombiano,
   celular_remitente: celularColombiano,
   fecha_envio: fechaFutura,
+  email_contacto: z
+    .string()
+    .email('Email inválido')
+    .transform((v) => v.toLowerCase().trim()),
+  nombre_contacto: z
+    .string()
+    .min(3, 'Mínimo 3 caracteres')
+    .max(100, 'Máximo 100 caracteres')
+    .transform((v) => v.trim()),
+  telefono_contacto: celularColombiano,
 });
 
 export type PersonalizarInput = z.input<typeof personalizarSchema>;
 export type CrearMensajeInput = z.input<typeof crearMensajeSchema>;
 export type CrearMensajeOutput = z.output<typeof crearMensajeSchema>;
+
+/** Schema para validar datos de contacto en pago */
+export const datosContactoSchema = z.object({
+  email_contacto: z
+    .string()
+    .email('Email inválido')
+    .transform((v) => v.toLowerCase().trim()),
+  nombre_contacto: z
+    .string()
+    .min(3, 'Mínimo 3 caracteres')
+    .max(100, 'Máximo 100 caracteres')
+    .transform((v) => v.trim()),
+  telefono_contacto: celularColombiano,
+});
+
+export type DatosContactoInput = z.input<typeof datosContactoSchema>;
+export type DatosContactoOutput = z.output<typeof datosContactoSchema>;

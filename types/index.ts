@@ -31,6 +31,9 @@ export interface MensajeProgramado {
   recordatorio_enviado: boolean;
   intentos_envio: number;
   error_detalle: string | null;
+  email_contacto: string | null;
+  nombre_contacto: string | null;
+  telefono_contacto: string | null;
   created_at: string;
   updated_at: string;
 }

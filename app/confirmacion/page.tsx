@@ -1,17 +1,28 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Suspense, useEffect } from 'react';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
 
 function ContenidoConfirmacion() {
   const params = useSearchParams();
+  const router = useRouter();
+  
   // Bold redirige con: ?bold-order-id=xxx&bold-tx-status=approved|rejected|pending
   const txStatus = params.get('bold-tx-status');
   const orderId = params.get('bold-order-id');
   const aprobado = txStatus === 'approved';
   const pendiente = txStatus === 'pending' || (!txStatus && !orderId);
+
+  // Limpiar sessionStorage cuando se confirma el pago
+  useEffect(() => {
+    if (aprobado) {
+      sessionStorage.removeItem('datos_envio');
+      sessionStorage.removeItem('referencia_pago');
+      sessionStorage.removeItem('otp_phone');
+    }
+  }, [aprobado]);
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-16">

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
-import { createClient } from '@/lib/supabase/server';
 import { crearMensajeSchema } from '@/lib/validations';
 
 function getSupabaseAdmin() {
@@ -11,17 +10,7 @@ function getSupabaseAdmin() {
 }
 
 export async function POST(request: NextRequest) {
-  // Verificar sesión del usuario
-  const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session) {
-    return NextResponse.json(
-      { error: { code: 'NO_AUTENTICADO', message: 'Debes iniciar sesión para continuar.' } },
-      { status: 401 }
-    );
-  }
-
+  // Ya no requiere sesión autenticada - acceso público
   let body: unknown;
   try {
     body = await request.json();
@@ -47,7 +36,8 @@ export async function POST(request: NextRequest) {
     .from('mensajes_programados')
     .insert({
       ...parsed.data,
-      user_id: session.user.id,
+      user_id: null,  // Sin autenticación, user_id es null
+      empresa_id: null,  // Sin API key
       estado: 'pendiente',
     })
     .select('id')

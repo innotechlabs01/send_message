@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
+import { FormularioContacto } from '@/components/FormularioContacto';
+import { DatosContactoInput } from '@/lib/validations';
 
 interface DatosEnvio {
   texto_final: string;
@@ -34,6 +36,8 @@ export default function PaymentSummary() {
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [listo, setListo] = useState(false);
+  const [formularioEnviado, setFormularioEnviado] = useState(false);
+  const [datosContacto, setDatosContacto] = useState<DatosContactoInput | null>(null);
   const scriptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,55 +48,59 @@ export default function PaymentSummary() {
     setDatos(parsed);
   }, [router]);
 
-  // Cuando tenemos los datos, guardamos el mensaje y obtenemos la config de Bold
-  useEffect(() => {
+  // Cuando el formulario de contacto se envía, guardar datos y obtener config de Bold
+  const handleFormularioContactoSubmit = async (datosForm: DatosContactoInput) => {
+    setDatosContacto(datosForm);
+    setFormularioEnviado(true);
+    setGuardando(true);
+    setError(null);
+
     if (!datos) return;
 
-    const inicializar = async () => {
-      setGuardando(true);
-      setError(null);
+    try {
+      // 1. Guardar mensaje en DB con datos de contacto
+      const resMensaje = await fetch('/api/mensajes/guardar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...datos,
+          ...datosForm,
+        }),
+      });
 
-      try {
-        // 1. Guardar mensaje en DB con user_id
-        const resMensaje = await fetch('/api/mensajes/guardar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(datos),
-        });
-
-        if (!resMensaje.ok) {
-          const json = await resMensaje.json();
-          setError(json.error?.message ?? 'Error al guardar el mensaje.');
-          return;
-        }
-
-        // 2. Obtener config de Bold (orderId + hash generados en servidor)
-        const resBold = await fetch('/api/pago/bold-config', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            descripcion: `Mensaje para ${datos.nombre_destinatario}`,
-          }),
-        });
-
-        const jsonBold = await resBold.json();
-        if (!resBold.ok || 'error' in jsonBold) {
-          setError(jsonBold.error?.message ?? 'Error al configurar el pago.');
-          return;
-        }
-
-        setBoldConfig(jsonBold.data);
-        sessionStorage.setItem('referencia_pago', jsonBold.data.orderId);
-        setListo(true);
-      } catch {
-        setError('Error de conexión. Verifica tu internet e intenta de nuevo.');
-      } finally {
-        setGuardando(false);
+      if (!resMensaje.ok) {
+        const json = await resMensaje.json();
+        setError(json.error?.message ?? 'Error al guardar el mensaje.');
+        setFormularioEnviado(false);
+        return;
       }
-    };
 
-    inicializar();
-  }, [datos]);
+      // 2. Obtener config de Bold (orderId + hash generados en servidor)
+      const resBold = await fetch('/api/pago/bold-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          descripcion: `Mensaje para ${datos.nombre_destinatario}`,
+        }),
+      });
+
+      const jsonBold = await resBold.json();
+      if (!resBold.ok || 'error' in jsonBold) {
+        setError(jsonBold.error?.message ?? 'Error al configurar el pago.');
+        setFormularioEnviado(false);
+        return;
+      }
+
+      setBoldConfig(jsonBold.data);
+      sessionStorage.setItem('referencia_pago', jsonBold.data.orderId);
+      setListo(true);
+    } catch {
+      setError('Error de conexión. Verifica tu internet e intenta de nuevo.');
+      setFormularioEnviado(false);
+    } finally {
+      setGuardando(false);
+    }
+  };
 
   // Inyectar el script del botón Bold una vez que tenemos la config
   useEffect(() => {
@@ -165,6 +173,17 @@ export default function PaymentSummary() {
             )}
           </div>
         </div>
+
+        {/* Formulario de contacto (mostrar si no se ha enviado aún) */}
+        {!formularioEnviado && (
+          <div className="bg-white border border-[#CCCCCC] rounded-xl p-5">
+            <h2 className="font-semibold text-[#333333] mb-4">Datos de contacto</h2>
+            <FormularioContacto
+              onSubmit={handleFormularioContactoSubmit}
+              isLoading={guardando}
+            />
+          </div>
+        )}
 
         {error && (
           <p role="alert" className="text-red-600 text-sm text-center">{error}</p>
