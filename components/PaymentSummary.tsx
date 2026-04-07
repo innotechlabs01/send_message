@@ -58,15 +58,6 @@ function guardarMensajeEnStorage(mensaje: MensajeGuardado) {
   }
 }
 
-function limpiarStorage() {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    console.error('Error limpiando localStorage');
-  }
-}
-
 export default function PaymentSummary() {
   const router = useRouter();
   const [datos, setDatos] = useState<DatosEnvio | null>(null);
@@ -78,22 +69,13 @@ export default function PaymentSummary() {
   const [mensajesGuardados, setMensajesGuardados] = useState(0);
   const scriptRef = useRef<HTMLDivElement>(null);
 
-  // Limpiar localStorage al descargar la página
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      limpiarStorage();
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
-
   useEffect(() => {
     const guardado = sessionStorage.getItem('datos_envio');
     if (!guardado) { router.replace('/categorias'); return; }
     const parsed = JSON.parse(guardado);
     if (!parsed.texto_final) { router.replace('/categorias'); return; }
     setDatos(parsed);
-    
+
     // Cargar cantidad de mensajes guardados
     const guardados = obtenerMensajesGuardados();
     setMensajesGuardados(guardados.length);
@@ -299,14 +281,14 @@ export default function PaymentSummary() {
               })}
             </span>
           </div>
-          <div className="flex justify-between text-sm">
+          {/* <div className="flex justify-between text-sm">
             <span className="text-[#666666]">Subtotal:</span>
             <span className="text-[#333333]">
               {(cantidadTotalConActual * 2000).toLocaleString('es-CO', {
                 style: 'currency', currency: 'COP', minimumFractionDigits: 0,
               })}
             </span>
-          </div>
+          </div> */}
           <div className="flex justify-between text-sm">
             <span className="text-[#666666]">IVA (19%):</span>
             <span className="text-[#333333]">
