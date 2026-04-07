@@ -59,14 +59,16 @@ export const crearMensajeSchema = z.object({
   email_contacto: z
     .string()
     .email('Email inválido')
-    .transform((v) => v.toLowerCase().trim()),
+    .optional()
+    .transform((v) => v?.toLowerCase().trim()),
   nombre_contacto: z
     .string()
     .min(3, 'Mínimo 3 caracteres')
     .max(100, 'Máximo 100 caracteres')
     .regex(/^[a-zA-Z]([a-zA-Z\s]*[a-zA-Z])?$/, 'Solo se permiten letras y espacios (mínimo una letra)')
-    .transform((v) => v.trim()),
-  telefono_contacto: celularColombiano,
+    .optional()
+    .transform((v) => v?.trim()),
+  telefono_contacto: celularColombiano.optional(),
 });
 
 export type PersonalizarInput = z.input<typeof personalizarSchema>;
