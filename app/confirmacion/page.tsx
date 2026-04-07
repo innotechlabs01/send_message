@@ -6,7 +6,6 @@ import Link from 'next/link';
 import Button from '@/components/ui/Button';
 
 const STORAGE_KEY = 'mensajes_programados_pendientes';
-const PRECIO_UNITARIO = 2380;
 
 function ContenidoConfirmacion() {
   const params = useSearchParams();
