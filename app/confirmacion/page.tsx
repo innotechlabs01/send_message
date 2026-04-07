@@ -10,7 +10,7 @@ const STORAGE_KEY = 'mensajes_programados_pendientes';
 function ContenidoConfirmacion() {
   const params = useSearchParams();
   const [cantidadMensajes, setCantidadMensajes] = useState(0);
-  
+   
   // Bold redirige con: ?bold-order-id=xxx&bold-tx-status=approved|rejected|pending
   const txStatus = params.get('bold-tx-status');
   const orderId = params.get('bold-order-id');
