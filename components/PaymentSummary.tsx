@@ -190,13 +190,40 @@ export default function PaymentSummary() {
                       style: 'currency', currency: 'COP', minimumFractionDigits: 0,
                     })}
                   </span>
-                </div>
-              </div>
-            )}
+                 </div>
+               </div>
+             )}
+           </div>
+         </div>
+
+        {/* Desglose de precio (visible antes del formulario) */}
+        <div className="bg-white border border-[#CCCCCC] rounded-xl p-5 space-y-2">
+          <h2 className="font-semibold text-[#333333] mb-3">Desglose de precio</h2>
+          <div className="flex justify-between text-sm">
+            <span className="text-[#666666]">Precio base:</span>
+            <span className="text-[#333333]">
+              {(2000).toLocaleString('es-CO', {
+                style: 'currency', currency: 'COP', minimumFractionDigits: 0,
+              })}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-[#666666]">IVA (19%):</span>
+            <span className="text-[#333333]">
+              {(380).toLocaleString('es-CO', {
+                style: 'currency', currency: 'COP', minimumFractionDigits: 0,
+              })}
+            </span>
+          </div>
+          <div className="flex justify-between border-t border-[#CCCCCC] pt-2 mt-2">
+            <span className="font-semibold text-[#333333]">Total a pagar:</span>
+            <span className="font-bold text-[#4A90D9]">
+              {(2380).toLocaleString('es-CO', {
+                style: 'currency', currency: 'COP', minimumFractionDigits: 0,
+              })}
+            </span>
           </div>
         </div>
-
-        {/* Formulario de contacto (mostrar si no se ha enviado aún) */}
         {!formularioEnviado && (
           <div className="bg-white border border-[#CCCCCC] rounded-xl p-5">
             <h2 className="font-semibold text-[#333333] mb-4">Datos de contacto</h2>
