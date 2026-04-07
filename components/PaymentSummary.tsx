@@ -15,6 +15,12 @@ interface DatosEnvio {
   fecha_envio: string;
 }
 
+interface MensajeGuardado extends DatosEnvio {
+  email_contacto: string;
+  nombre_contacto: string;
+  telefono_contacto: string;
+}
+
 interface BoldConfig {
   orderId: string;
   amount: number;
@@ -24,9 +30,41 @@ interface BoldConfig {
   descripcion: string;
 }
 
+const STORAGE_KEY = 'mensajes_programados_pendientes';
+const PRECIO_UNITARIO = 2380;
+
 function enmascararCelular(cel: string): string {
   if (!cel || cel.length < 4) return '******';
   return `******${cel.slice(-4)}`;
+}
+
+function obtenerMensajesGuardados(): MensajeGuardado[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const almacenados = localStorage.getItem(STORAGE_KEY);
+    return almacenados ? JSON.parse(almacenados) : [];
+  } catch {
+    return [];
+  }
+}
+
+function guardarMensajeEnStorage(mensaje: MensajeGuardado) {
+  if (typeof window === 'undefined') return;
+  try {
+    const existentes = obtenerMensajesGuardados();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...existentes, mensaje]));
+  } catch {
+    console.error('Error guardando en localStorage');
+  }
+}
+
+function limpiarStorage() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    console.error('Error limpiando localStorage');
+  }
 }
 
 export default function PaymentSummary() {
@@ -37,7 +75,17 @@ export default function PaymentSummary() {
   const [guardando, setGuardando] = useState(false);
   const [listo, setListo] = useState(false);
   const [formularioEnviado, setFormularioEnviado] = useState(false);
+  const [mensajesGuardados, setMensajesGuardados] = useState(0);
   const scriptRef = useRef<HTMLDivElement>(null);
+
+  // Limpiar localStorage al descargar la página
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      limpiarStorage();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   useEffect(() => {
     const guardado = sessionStorage.getItem('datos_envio');
@@ -45,10 +93,14 @@ export default function PaymentSummary() {
     const parsed = JSON.parse(guardado);
     if (!parsed.texto_final) { router.replace('/categorias'); return; }
     setDatos(parsed);
+    
+    // Cargar cantidad de mensajes guardados
+    const guardados = obtenerMensajesGuardados();
+    setMensajesGuardados(guardados.length);
   }, [router]);
 
-  // Cuando el formulario de contacto se envía, guardar datos y obtener config de Bold
-  const handleFormularioContactoSubmit = async (datosForm: DatosContactoInput) => {
+  // Cuando el formulario de contacto se envía
+  const handleFormularioContactoSubmit = async (datosForm: DatosContactoInput, programarMas: boolean) => {
     setFormularioEnviado(true);
     setGuardando(true);
     setError(null);
@@ -56,29 +108,50 @@ export default function PaymentSummary() {
     if (!datos) return;
 
     try {
-      // 1. Guardar mensaje en DB con datos de contacto
+      const mensajeCompleto: MensajeGuardado = {
+        ...datos,
+        ...datosForm,
+      };
+
+      // Si checkbox MARCADO (programarMas = true): Guardar en LocalStorage y volver a categorías
+      if (programarMas) {
+        guardarMensajeEnStorage(mensajeCompleto);
+        sessionStorage.removeItem('datos_envio');
+        // Toast de éxito (opcional, podrías agregar un toast component)
+        router.push('/categorias');
+        return;
+      }
+
+      // Si checkbox DESMARCADO (programarMas = false): Proceder al pago
+      // 1. Guardar mensaje actual en LocalStorage
+      guardarMensajeEnStorage(mensajeCompleto);
+
+      // 2. Obtener cantidad total de mensajes (guardados + 1 actual)
+      const guardados = obtenerMensajesGuardados();
+      const cantidadTotal = guardados.length;
+
+      // 3. Guardar mensaje en DB (sin campos de contacto, ya que se guardaron en storage)
       const resMensaje = await fetch('/api/mensajes/guardar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...datos,
-          ...datosForm,
-        }),
+        body: JSON.stringify(datos),
       });
 
       if (!resMensaje.ok) {
         const json = await resMensaje.json();
         setError(json.error?.message ?? 'Error al guardar el mensaje.');
         setFormularioEnviado(false);
+        setGuardando(false);
         return;
       }
 
-      // 2. Obtener config de Bold (orderId + hash generados en servidor)
+      // 4. Obtener config de Bold con cantidad de mensajes
       const resBold = await fetch('/api/pago/bold-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          descripcion: `Mensaje para ${datos.nombre_destinatario}`,
+          descripcion: `${cantidadTotal} mensaje(s) programado(s)`,
+          cantidad: cantidadTotal,
         }),
       });
 
@@ -86,11 +159,13 @@ export default function PaymentSummary() {
       if (!resBold.ok || 'error' in jsonBold) {
         setError(jsonBold.error?.message ?? 'Error al configurar el pago.');
         setFormularioEnviado(false);
+        setGuardando(false);
         return;
       }
 
       setBoldConfig(jsonBold.data);
       sessionStorage.setItem('referencia_pago', jsonBold.data.orderId);
+      sessionStorage.setItem('cantidad_mensajes', String(cantidadTotal));
       setListo(true);
     } catch {
       setError('Error de conexión. Verifica tu internet e intenta de nuevo.');
@@ -104,7 +179,6 @@ export default function PaymentSummary() {
   useEffect(() => {
     if (!listo || !boldConfig || !scriptRef.current) return;
 
-    // Limpiar botón previo si existe
     scriptRef.current.innerHTML = '';
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
@@ -122,13 +196,15 @@ export default function PaymentSummary() {
 
     scriptRef.current.appendChild(script);
 
-    // Forzar que el SDK de Bold procese el nuevo script
     if (typeof window !== 'undefined' && (window as Window & { Bold?: { refresh?: () => void } }).Bold?.refresh) {
       (window as Window & { Bold?: { refresh?: () => void } }).Bold!.refresh!();
     }
   }, [listo, boldConfig]);
 
   if (!datos) return null;
+
+  const cantidadTotalConActual = mensajesGuardados + 1;
+  const precioTotal = cantidadTotalConActual * PRECIO_UNITARIO;
 
   return (
     <>
@@ -139,6 +215,15 @@ export default function PaymentSummary() {
       />
 
       <div className="space-y-6">
+        {/* Contador de mensajes programados */}
+        {mensajesGuardados > 0 && (
+          <div className="bg-[#E8F5E9] border border-[#4CAF50] rounded-xl p-4">
+            <p className="text-sm text-[#2E7D32] font-medium">
+              ✅ Tienes {mensajesGuardados} mensaje{mensajesGuardados !== 1 ? 's' : ''} pendiente{mensajesGuardados !== 1 ? 's' : ''} de programar
+            </p>
+          </div>
+        )}
+
         {/* Resumen del pedido */}
         <div className="bg-[#ECECEC] border border-[#CCCCCC] rounded-xl p-5 space-y-3">
           <h2 className="font-semibold text-[#333333]">Resumen del pedido</h2>
@@ -165,9 +250,13 @@ export default function PaymentSummary() {
             </div>
             {boldConfig && (
               <div className="border-t border-[#CCCCCC] pt-2 mt-2 space-y-2">
-                {/* Desglose de precio */}
+                {/* Desglose de precio en boldConfig */}
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#666666]">Precio base:</span>
+                  <span className="text-[#666666]">Cantidad de mensajes:</span>
+                  <span className="text-[#333333] font-medium">{cantidadTotalConActual}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#666666]">Precio por mensaje:</span>
                   <span className="text-[#333333]">
                     {(2000).toLocaleString('es-CO', {
                       style: 'currency', currency: 'COP', minimumFractionDigits: 0,
@@ -177,30 +266,34 @@ export default function PaymentSummary() {
                 <div className="flex justify-between text-sm">
                   <span className="text-[#666666]">IVA (19%):</span>
                   <span className="text-[#333333]">
-                    {(380).toLocaleString('es-CO', {
+                    {(Math.round(cantidadTotalConActual * 380)).toLocaleString('es-CO', {
                       style: 'currency', currency: 'COP', minimumFractionDigits: 0,
                     })}
                   </span>
                 </div>
                 {/* Total */}
-                <div className="flex justify-between border-t border-[#CCCCCC] pt-2">
-                  <span className="font-semibold text-[#333333]">Total a pagar:</span>
-                  <span className="font-bold text-[#4A90D9]">
+                <div className="flex justify-between border-t border-[#CCCCCC] pt-2 font-semibold">
+                  <span className="text-[#333333]">Total a pagar:</span>
+                  <span className="text-[#4A90D9]">
                     {boldConfig.amount.toLocaleString('es-CO', {
                       style: 'currency', currency: 'COP', minimumFractionDigits: 0,
                     })}
                   </span>
-                 </div>
-               </div>
-             )}
-           </div>
-         </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Desglose de precio (visible antes del formulario) */}
         <div className="bg-white border border-[#CCCCCC] rounded-xl p-5 space-y-2">
           <h2 className="font-semibold text-[#333333] mb-3">Desglose de precio</h2>
           <div className="flex justify-between text-sm">
-            <span className="text-[#666666]">Precio base:</span>
+            <span className="text-[#666666]">Cantidad de mensajes:</span>
+            <span className="text-[#333333] font-medium">{cantidadTotalConActual}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-[#666666]">Precio por mensaje:</span>
             <span className="text-[#333333]">
               {(2000).toLocaleString('es-CO', {
                 style: 'currency', currency: 'COP', minimumFractionDigits: 0,
@@ -208,9 +301,17 @@ export default function PaymentSummary() {
             </span>
           </div>
           <div className="flex justify-between text-sm">
+            <span className="text-[#666666]">Subtotal:</span>
+            <span className="text-[#333333]">
+              {(cantidadTotalConActual * 2000).toLocaleString('es-CO', {
+                style: 'currency', currency: 'COP', minimumFractionDigits: 0,
+              })}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm">
             <span className="text-[#666666]">IVA (19%):</span>
             <span className="text-[#333333]">
-              {(380).toLocaleString('es-CO', {
+              {(Math.round(cantidadTotalConActual * 380)).toLocaleString('es-CO', {
                 style: 'currency', currency: 'COP', minimumFractionDigits: 0,
               })}
             </span>
@@ -218,12 +319,13 @@ export default function PaymentSummary() {
           <div className="flex justify-between border-t border-[#CCCCCC] pt-2 mt-2">
             <span className="font-semibold text-[#333333]">Total a pagar:</span>
             <span className="font-bold text-[#4A90D9]">
-              {(2380).toLocaleString('es-CO', {
+              {precioTotal.toLocaleString('es-CO', {
                 style: 'currency', currency: 'COP', minimumFractionDigits: 0,
               })}
             </span>
           </div>
         </div>
+
         {!formularioEnviado && (
           <div className="bg-white border border-[#CCCCCC] rounded-xl p-5">
             <h2 className="font-semibold text-[#333333] mb-4">Datos de contacto</h2>

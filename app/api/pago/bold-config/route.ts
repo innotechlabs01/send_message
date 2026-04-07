@@ -12,7 +12,7 @@ function getSupabaseAdmin() {
 }
 
 export async function POST(request: NextRequest) {
-  let body: { descripcion?: string } = {};
+  let body: { descripcion?: string; cantidad?: number } = {};
   try {
     body = await request.json();
   } catch {
@@ -34,9 +34,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Calcular precio total basado en cantidad de mensajes
+  const cantidad = body.cantidad ?? 1;
+  const precioUnitario = config.precio_cop;
+  const amount = precioUnitario * cantidad;
+
   const { apiKey, secretKey } = getBoldCredentials();
   const orderId = `MSG-${Date.now()}`;
-  const amount = config.precio_cop;
   const integritySignature = generarIntegrityHash(orderId, amount, CURRENCY, secretKey);
 
   return NextResponse.json({
@@ -46,7 +50,7 @@ export async function POST(request: NextRequest) {
       currency: CURRENCY,
       apiKey,
       integritySignature,
-      descripcion: body.descripcion ?? 'Mensaje programado ConSentido',
+      descripcion: body.descripcion ?? `${cantidad} mensaje(s) programado(s) ConSentido`,
     },
   });
 }

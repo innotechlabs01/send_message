@@ -6,7 +6,7 @@ import Button from '@/components/ui/Button';
 import { DatosContactoInput, datosContactoSchema } from '@/lib/validations';
 
 interface FormularioContactoProps {
-  onSubmit: (datos: DatosContactoInput) => void;
+  onSubmit: (datos: DatosContactoInput, programarMas: boolean) => void;
   isLoading?: boolean;
 }
 
@@ -20,6 +20,7 @@ export function FormularioContacto({
     telefono_contacto: '',
   });
 
+  const [programarMas, setProgramarMas] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
@@ -51,7 +52,7 @@ export function FormularioContacto({
     try {
       datosContactoSchema.parse(formData);
       setErrors({});
-      onSubmit(formData);
+      onSubmit(formData, programarMas);
     } catch (error) {
       const newErrors: Record<string, string> = {};
       if (error instanceof Error && 'errors' in error) {
@@ -113,13 +114,31 @@ export function FormularioContacto({
         inputMode="numeric"
       />
 
+      {/* Checkbox: Programar más mensajes */}
+      <div className="flex items-start gap-3 p-3 bg-[#F5F5F5] rounded-lg">
+        <input
+          type="checkbox"
+          id="programar_mas"
+          checked={programarMas}
+          onChange={(e) => setProgramarMas(e.target.checked)}
+          disabled={isLoading}
+          className="w-5 h-5 mt-0.5 rounded border-[#CCCCCC] text-[#4A90D9] cursor-pointer accent-[#4A90D9]"
+        />
+        <label
+          htmlFor="programar_mas"
+          className="flex-1 text-sm text-[#333333] cursor-pointer"
+        >
+          ¿Deseas programar más mensajes?
+        </label>
+      </div>
+
       <Button
         type="submit"
         disabled={isLoading}
         cargando={isLoading}
         className="w-full"
       >
-        Proceder al Pago
+        {programarMas ? 'Guardar y Programar Más' : 'Proceder al Pago'}
       </Button>
     </form>
   );

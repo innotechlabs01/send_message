@@ -58,21 +58,20 @@ export const crearMensajeSchema = z.object({
   fecha_envio: fechaFutura,
   email_contacto: z
     .string()
+    .min(1, 'El email es requerido')
     .email('Email inválido')
-    .optional()
-    .transform((v) => v?.toLowerCase().trim()),
+    .transform((v) => v.toLowerCase().trim()),
   nombre_contacto: z
     .string()
     .min(3, 'Mínimo 3 caracteres')
     .max(100, 'Máximo 100 caracteres')
     .regex(/^[a-zA-Z]([a-zA-Z\s]*[a-zA-Z])?$/, 'Solo se permiten letras y espacios (mínimo una letra)')
-    .optional()
-    .transform((v) => v?.trim()),
+    .transform((v) => v.trim()),
   telefono_contacto: z
     .string()
+    .min(1, 'El teléfono es requerido')
     .regex(/^3[0-9]{9}$/, 'Teléfono debe tener exactamente 10 dígitos comenzando con 3')
-    .transform((val) => `+57${val}`)
-    .optional(),
+    .transform((val) => `+57${val}`),
 });
 
 export type PersonalizarInput = z.input<typeof personalizarSchema>;

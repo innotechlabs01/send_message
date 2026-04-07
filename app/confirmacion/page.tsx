@@ -1,12 +1,16 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
 
+const STORAGE_KEY = 'mensajes_programados_pendientes';
+const PRECIO_UNITARIO = 2380;
+
 function ContenidoConfirmacion() {
   const params = useSearchParams();
+  const [cantidadMensajes, setCantidadMensajes] = useState(0);
   
   // Bold redirige con: ?bold-order-id=xxx&bold-tx-status=approved|rejected|pending
   const txStatus = params.get('bold-tx-status');
@@ -17,9 +21,28 @@ function ContenidoConfirmacion() {
   // Limpiar sessionStorage cuando se confirma el pago
   useEffect(() => {
     if (aprobado) {
+      // Obtener cantidad de mensajes antes de limpiar
+      try {
+        const cantidadStr = sessionStorage.getItem('cantidad_mensajes');
+        if (cantidadStr) {
+          setCantidadMensajes(parseInt(cantidadStr, 10));
+        }
+      } catch {
+        console.error('Error obteniendo cantidad de mensajes');
+      }
+      
+      // Limpiar localStorage (mensajes programados)
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        console.error('Error limpiando localStorage');
+      }
+      
+      // Limpiar sessionStorage
       sessionStorage.removeItem('datos_envio');
       sessionStorage.removeItem('referencia_pago');
       sessionStorage.removeItem('otp_phone');
+      sessionStorage.removeItem('cantidad_mensajes');
     }
   }, [aprobado]);
 
@@ -55,10 +78,16 @@ function ContenidoConfirmacion() {
           {aprobado ? (
             <>
               <h1 className="text-3xl font-bold text-[#333333]">
-                ¡Tu mensaje ha sido programado!
+                ¡Tu pago ha sido confirmado!
               </h1>
               <p className="text-[#666666]">
-                Recibirás un recordatorio un día antes del envío. El destinatario recibirá el mensaje en la fecha programada.
+                {cantidadMensajes > 0 ? (
+                  <>
+                    <strong>{cantidadMensajes} mensaje{cantidadMensajes !== 1 ? 's' : ''}</strong> ha{cantidadMensajes !== 1 ? 'n' : ''} sido programado{cantidadMensajes !== 1 ? 's' : ''}. Recibirás un recordatorio un día antes del envío.
+                  </>
+                ) : (
+                  'Tu mensaje ha sido programado. Recibirás un recordatorio un día antes del envío.'
+                )}
               </p>
             </>
           ) : pendiente ? (
