@@ -74,9 +74,13 @@ export default function MessagePreview({ abierto, datos, onCerrar, onAceptar }: 
             <div className="flex justify-between">
               <span className="text-[#666666]">Fecha de envío:</span>
               <span className="font-medium text-[#333333]">
-                {new Date(datos.fechaEnvio).toLocaleDateString('es-CO', {
-                  year: 'numeric', month: 'long', day: 'numeric',
-                })}
+                {(() => {
+                  const [year, month, day] = datos.fechaEnvio.split('-').map(Number);
+                  const fecha = new Date(year, month - 1, day);
+                  return fecha.toLocaleDateString('es-CO', {
+                    year: 'numeric', month: 'long', day: 'numeric',
+                  });
+                })()}
               </span>
             </div>
           )}
