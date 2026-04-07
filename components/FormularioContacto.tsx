@@ -114,31 +114,70 @@ export function FormularioContacto({
         inputMode="numeric"
       />
 
-      {/* Checkbox: Programar más mensajes */}
-      <div className="flex items-start gap-3 p-3 bg-[#F5F5F5] rounded-lg">
-        <input
-          type="checkbox"
-          id="programar_mas"
-          checked={programarMas}
-          onChange={(e) => setProgramarMas(e.target.checked)}
-          disabled={isLoading}
-          className="w-5 h-5 mt-0.5 rounded border-[#CCCCCC] text-[#4A90D9] cursor-pointer accent-[#4A90D9]"
-        />
-        <label
-          htmlFor="programar_mas"
-          className="flex-1 text-sm text-[#333333] cursor-pointer"
-        >
-          ¿Deseas programar más mensajes?
-        </label>
+      {/* Checkbox: Programar más mensajes - CON INDICADOR VISUAL */}
+      <div className={`p-4 rounded-lg border-2 transition-all ${
+        programarMas 
+          ? 'bg-[#E8F5E9] border-[#4CAF50]' 
+          : 'bg-[#FCE4EC] border-[#E91E63]'
+      }`}>
+        <div className="flex items-start gap-3 mb-2">
+          <input
+            type="checkbox"
+            id="programar_mas"
+            checked={programarMas}
+            onChange={(e) => setProgramarMas(e.target.checked)}
+            disabled={isLoading}
+            className="w-5 h-5 mt-0.5 rounded border-[#CCCCCC] text-[#4A90D9] cursor-pointer accent-[#4A90D9]"
+          />
+          <div className="flex-1">
+            <label
+              htmlFor="programar_mas"
+              className="block text-sm font-medium text-[#333333] cursor-pointer"
+            >
+              ¿Deseas programar más mensajes?
+            </label>
+            <p className={`text-xs mt-1 ${
+              programarMas ? 'text-[#2E7D32]' : 'text-[#C2185B]'
+            }`}>
+              {programarMas ? (
+                <>✅ Modo: Guardar y volver a crear más</>
+              ) : (
+                <>💳 Modo: Proceder directamente al pago</>
+              )}
+            </p>
+          </div>
+          {/* Badge del estado */}
+          <div className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
+            programarMas
+              ? 'bg-[#4CAF50] text-white'
+              : 'bg-[#E91E63] text-white'
+          }`}>
+            {programarMas ? 'Guardando' : 'Pagando'}
+          </div>
+        </div>
+
+        {/* Información adicional */}
+        <div className={`text-xs mt-2 p-2 rounded ${
+          programarMas 
+            ? 'bg-white/50 text-[#2E7D32]' 
+            : 'bg-white/50 text-[#C2185B]'
+        }`}>
+          {programarMas ? (
+            'Tu mensaje se guardará en la lista de espera. Podrás crear más mensajes antes de pagar.'
+          ) : (
+            'Todos tus mensajes guardados + este se pagarán ahora.'
+          )}
+        </div>
       </div>
 
       <Button
         type="submit"
         disabled={isLoading}
         cargando={isLoading}
+        variante={programarMas ? 'secondary' : 'primary'}
         className="w-full"
       >
-        {programarMas ? 'Guardar y Programar Más' : 'Proceder al Pago'}
+        {programarMas ? '💾 Guardar y Programar Más' : '💳 Proceder al Pago'}
       </Button>
     </form>
   );
