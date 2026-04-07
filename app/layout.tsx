@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
+import SessionCleanup from '@/components/SessionCleanup';
 
 const geistSans = localFont({
   src: './fonts/GeistVF.woff',
@@ -37,7 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es">
       <body className={`${geistSans.variable} antialiased bg-white text-[#333333]`}>
-        {children}
+        <SessionCleanup>{children}</SessionCleanup>
         <Analytics />
       </body>
     </html>

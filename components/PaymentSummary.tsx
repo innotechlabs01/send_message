@@ -117,8 +117,7 @@ export default function PaymentSummary() {
       if (programarMas) {
         guardarMensajeEnStorage(mensajeCompleto);
         sessionStorage.removeItem('datos_envio');
-        // Toast de éxito (opcional, podrías agregar un toast component)
-        router.push('/categorias');
+        window.location.href = '/categorias';
         return;
       }
 
