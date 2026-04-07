@@ -27,8 +27,8 @@ export default function SendForm({ datosIniciales }: SendFormProps) {
   const [celularRemitente, setCelularRemitente] = useState('');
   const [errores, setErrores] = useState<Errores>({});
 
-  // Fecha mínima: hoy
-  const hoy = new Date().toISOString().split('T')[0];
+  // Fecha mínima: hoy (usando zona horaria local, no UTC)
+  const hoy = new Date().toLocaleDateString('en-CA');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
