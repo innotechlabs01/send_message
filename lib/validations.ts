@@ -79,15 +79,21 @@ export type CrearMensajeOutput = z.output<typeof crearMensajeSchema>;
 export const datosContactoSchema = z.object({
   email_contacto: z
     .string()
-    .email('Email inválido')
+    .min(1, 'El email es requerido')
+    .email('Email inválido - formato correcto: ejemplo@correo.com')
     .transform((v) => v.toLowerCase().trim()),
   nombre_contacto: z
     .string()
+    .min(1, 'El nombre completo es requerido')
     .min(3, 'Mínimo 3 caracteres')
     .max(100, 'Máximo 100 caracteres')
-    .regex(/^[a-zA-Z]([a-zA-Z\s]*[a-zA-Z])?$/, 'Solo se permiten letras y espacios (mínimo una letra)')
+    .regex(/^[a-zA-Z]([a-zA-Z\s]*[a-zA-Z])?$/, 'Solo se permiten letras y espacios (mínimo una letra, sin doble espacio)')
     .transform((v) => v.trim()),
-  telefono_contacto: celularColombiano,
+  telefono_contacto: z
+    .string()
+    .min(1, 'El teléfono es requerido')
+    .regex(/^[0-9]{10}$/, 'Teléfono debe tener exactamente 10 dígitos')
+    .regex(/^3/, 'El teléfono debe comenzar con 3 (Colombia)'),
 });
 
 export type DatosContactoInput = z.input<typeof datosContactoSchema>;

@@ -101,6 +101,7 @@ export function FormularioContacto({
         id="telefono"
         type="tel"
         placeholder="3001234567"
+        maxLength={10}
         value={formData.telefono_contacto}
         onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
           handleChange('telefono_contacto', e.target.value.replace(/\D/g, ''))
@@ -108,6 +109,8 @@ export function FormularioContacto({
         onBlur={() => handleBlur('telefono_contacto')}
         disabled={isLoading}
         error={touched.telefono_contacto ? errors.telefono_contacto : undefined}
+        hint="10 dígitos, empieza en 3"
+        inputMode="numeric"
       />
 
       <Button
