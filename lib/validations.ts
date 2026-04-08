@@ -1,10 +1,24 @@
 import { z } from 'zod';
 
-/** Celular colombiano: 10 dígitos que empiezan en 3, se transforma a +57 */
+/** Celular colombiano: acepta 10 dígitos que empiezan en 3 O formato +57 */
 export const celularColombiano = z
   .string()
-  .regex(/^3[0-9]{9}$/, 'Aún no tenemos disponible el servicio fuera de Colombia')
-  .transform((val) => `+57${val}`);
+  .refine(
+    (val) => {
+      // Acepta formato original: 3116638572
+      // O formato con +57: +573116638572
+      if (/^3[0-9]{9}$/.test(val)) return true;
+      if (/^\+57[0-9]{10}$/.test(val)) return true;
+      return false;
+    },
+    { message: 'Aún no tenemos disponible el servicio fuera de Colombia' }
+  )
+  .transform((val) => {
+    // Si ya tiene +57, dejar como está
+    if (val.startsWith('+57')) return val;
+    // Si no, agregar +57
+    return `+57${val}`;
+  });
 
 /** Fecha futura (mínimo hoy) */
 const fechaFutura = z
