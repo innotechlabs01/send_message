@@ -60,6 +60,31 @@ export const enviarDatosSchema = z.object({
 
 export type EnviarDatosInput = z.input<typeof enviarDatosSchema>;
 
+/** Schema para guardar mensaje inicialmente (sin contacto) - para pago progresivo */
+export const mensajeBaseSchema = z.object({
+  nombre_destinatario: z
+    .string()
+    .min(1, 'El nombre del destinatario es requerido')
+    .max(100, 'Máximo 100 caracteres')
+    .regex(/^[a-zA-Z]([a-zA-Z\s]*[a-zA-Z])?$/, 'Solo se permiten letras y espacios')
+    .transform((v) => v.trim()),
+  nombre_remitente: z
+    .string()
+    .min(1, 'Tu nombre es requerido')
+    .max(100, 'Máximo 100 caracteres')
+    .regex(/^[a-zA-Z]([a-zA-Z\s]*[a-zA-Z])?$/, 'Solo se permiten letras y espacios')
+    .transform((v) => v.trim()),
+  texto_final: z
+    .string()
+    .min(1, 'El texto del mensaje es requerido')
+    .max(1600, 'El mensaje no puede superar 1600 caracteres'),
+  celular_destinatario: celularColombiano,
+  celular_remitente: celularColombiano,
+  fecha_envio: fechaFutura,
+});
+
+export type MensajeBaseInput = z.input<typeof mensajeBaseSchema>;
+
 /** Schema completo para crear un mensaje programado */
 export const crearMensajeSchema = z.object({
   nombre_destinatario: z

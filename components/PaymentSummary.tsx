@@ -95,10 +95,13 @@ export default function PaymentSummary() {
     }
 
     try {
+      console.log('datos:', datos);
+      console.log('datosForm:', datosForm);
       const mensajeCompleto: MensajeGuardado = {
         ...datos,
         ...datosForm,
       };
+      console.log('mensajeCompleto:', mensajeCompleto);
 
       // Si checkbox MARCADO (programarMas = true): Guardar en LocalStorage y volver a categorías
       if (programarMas) {
@@ -111,19 +114,19 @@ export default function PaymentSummary() {
 
       console.log('Procediendo al pago, guardando en localStorage');
       // Si checkbox DESMARCADO (programarMas = false): Proceder al pago
-      // 1. Guardar mensaje actual en LocalStorage
+      // 1. Guardar mensaje actual en LocalStorage (con contacto)
       guardarMensajeEnStorage(mensajeCompleto);
 
       // 2. Obtener cantidad total de mensajes (guardados + 1 actual)
       const guardados = obtenerMensajesGuardados();
       const cantidadTotal = guardados.length;
 
-      // 3. Guardar mensaje en DB (sin campos de contacto, ya que se guardaron en storage)
-      console.log('Guardando mensaje en DB, cantidadTotal:', cantidadTotal);
+      // 3. Guardar mensaje en DB (incluye campos de contacto)
+      console.log('Guardando mensaje en DB, cantidadTotal:', cantidadTotal, 'mensaje:', mensajeCompleto);
       const resMensaje = await fetch('/api/mensajes/guardar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(datos),
+        body: JSON.stringify(mensajeCompleto),
       });
 
       if (!resMensaje.ok) {
