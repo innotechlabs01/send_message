@@ -149,14 +149,18 @@ export default function PaymentSummary() {
         }),
       });
 
+      console.log('Obteniendo config de Bold, resBold.status:', resBold.status);
       const jsonBold = await resBold.json();
+      console.log('jsonBold response:', jsonBold);
       if (!resBold.ok || 'error' in jsonBold) {
+        console.log('Error en bold config:', jsonBold);
         setError(jsonBold.error?.message ?? 'Error al configurar el pago.');
         setFormularioEnviado(false);
         setGuardando(false);
         return;
       }
 
+      console.log('Bold config obtained:', jsonBold.data);
       setBoldConfig(jsonBold.data);
       sessionStorage.setItem('referencia_pago', jsonBold.data.orderId);
       sessionStorage.setItem('cantidad_mensajes', String(cantidadTotal));
