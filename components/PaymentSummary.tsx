@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { FormularioContacto } from '@/components/FormularioContacto';
+import Button from '@/components/ui/Button';
 import type { DatosContactoInput } from '@/lib/validations';
 
 interface DatosEnvio {
@@ -67,7 +68,6 @@ export default function PaymentSummary() {
   const [listo, setListo] = useState(false);
   const [formularioEnviado, setFormularioEnviado] = useState(false);
   const [mensajesGuardados, setMensajesGuardados] = useState(0);
-  const scriptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const guardado = sessionStorage.getItem('datos_envio');
@@ -173,31 +173,28 @@ export default function PaymentSummary() {
     }
   };
 
-  // Inyectar el script del botón Bold una vez que tenemos la config
-  useEffect(() => {
-    if (!listo || !boldConfig || !scriptRef.current) return;
+  // Inicializar y mostrar el botón de Bold
+  const iniciarPagoBold = () => {
+    if (!boldConfig) return;
 
-    scriptRef.current.innerHTML = '';
+    const appUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('.supabase.co', '.vercel.app') ?? 'https://send-message-theta.vercel.app';
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const checkout = new (window as unknown as { BoldCheckout: new (config: unknown) => { open: () => void } }).BoldCheckout({
+      orderId: boldConfig.orderId,
+      currency: boldConfig.currency,
+      amount: String(boldConfig.amount),
+      apiKey: boldConfig.apiKey,
+      integritySignature: boldConfig.integritySignature,
+      description: boldConfig.descripcion,
+      renderMode: 'embedded',
+      redirectionUrl: `${appUrl}/confirmacion`,
+    });
 
-    const script = document.createElement('script');
-    script.setAttribute('data-bold-button', 'dark-L');
-    script.setAttribute('data-api-key', boldConfig.apiKey);
-    script.setAttribute('data-order-id', boldConfig.orderId);
-    script.setAttribute('data-currency', boldConfig.currency);
-    script.setAttribute('data-amount', String(boldConfig.amount));
-    script.setAttribute('data-integrity-signature', boldConfig.integritySignature);
-    script.setAttribute('data-description', boldConfig.descripcion);
-    script.setAttribute('data-render-mode', 'embedded');
-    script.setAttribute('data-redirection-url', `${appUrl}/confirmacion`);
+    checkout.open();
+  };
 
-    scriptRef.current.appendChild(script);
-
-    if (typeof window !== 'undefined' && (window as Window & { Bold?: { refresh?: () => void } }).Bold?.refresh) {
-      (window as Window & { Bold?: { refresh?: () => void } }).Bold!.refresh!();
-    }
-  }, [listo, boldConfig]);
+  // Mostrar botón de pago cuando está listo
+  const mostrarBotonPago = listo && boldConfig;
 
   if (!datos) return null;
 
@@ -342,8 +339,16 @@ export default function PaymentSummary() {
           <p className="text-center text-sm text-[#666666]">Preparando pago...</p>
         )}
 
-        {/* Contenedor del botón Bold */}
-        {listo && <div ref={scriptRef} className="flex justify-center" />}
+        {/* Botón de pago Bold */}
+        {mostrarBotonPago && (
+          <Button 
+            variante="primary" 
+            className="w-full"
+            onClick={iniciarPagoBold}
+          >
+            💳 Pagar con Bold
+          </Button>
+        )}
 
         <p className="text-xs text-center text-[#999999]">
           Pago seguro procesado por Bold
