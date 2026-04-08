@@ -43,7 +43,6 @@ export function FormularioContacto({
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log('Form submitted', { formData, programarMas });
     setTouched({
       email_contacto: true,
       nombre_contacto: true,
@@ -53,7 +52,6 @@ export function FormularioContacto({
     try {
       datosContactoSchema.parse(formData);
       setErrors({});
-      console.log('Validation passed, calling onSubmit');
       onSubmit(formData, programarMas);
     } catch (error) {
       const newErrors: Record<string, string> = {};

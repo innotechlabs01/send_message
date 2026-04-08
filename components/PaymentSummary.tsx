@@ -83,46 +83,33 @@ export default function PaymentSummary() {
 
   // Cuando el formulario de contacto se envía
   const handleFormularioContactoSubmit = async (datosForm: DatosContactoInput, programarMas: boolean) => {
-    console.log('handleFormularioContactoSubmit called', { programarMas, datosForm });
     setFormularioEnviado(true);
     setGuardando(true);
     setError(null);
 
     if (!datos) {
-      console.log('No datos found');
       setGuardando(false);
       return;
     }
 
     try {
-      console.log('datos:', datos);
-      console.log('datosForm:', datosForm);
       const mensajeCompleto: MensajeGuardado = {
         ...datos,
         ...datosForm,
       };
-      console.log('mensajeCompleto:', mensajeCompleto);
 
-      // Si checkbox MARCADO (programarMas = true): Guardar en LocalStorage y volver a categorías
       if (programarMas) {
-        console.log('Guardando en localStorage y navegando a categorias');
         guardarMensajeEnStorage(mensajeCompleto);
         sessionStorage.removeItem('datos_envio');
         window.location.href = '/categorias';
         return;
       }
 
-      console.log('Procediendo al pago, guardando en localStorage');
-      // Si checkbox DESMARCADO (programarMas = false): Proceder al pago
-      // 1. Guardar mensaje actual en LocalStorage (con contacto)
       guardarMensajeEnStorage(mensajeCompleto);
 
-      // 2. Obtener cantidad total de mensajes (guardados + 1 actual)
       const guardados = obtenerMensajesGuardados();
       const cantidadTotal = guardados.length;
 
-      // 3. Guardar mensaje en DB (incluye campos de contacto)
-      console.log('Guardando mensaje en DB, cantidadTotal:', cantidadTotal, 'mensaje:', mensajeCompleto);
       const resMensaje = await fetch('/api/mensajes/guardar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -131,15 +118,12 @@ export default function PaymentSummary() {
 
       if (!resMensaje.ok) {
         const json = await resMensaje.json();
-        console.log('Error guardando mensaje:', json);
         setError(json.error?.message ?? 'Error al guardar el mensaje.');
         setFormularioEnviado(false);
         setGuardando(false);
         return;
       }
 
-      // 4. Obtener config de Bold con cantidad de mensajes
-      console.log('Obteniendo config de Bold');
       const resBold = await fetch('/api/pago/bold-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -149,18 +133,14 @@ export default function PaymentSummary() {
         }),
       });
 
-      console.log('Obteniendo config de Bold, resBold.status:', resBold.status);
       const jsonBold = await resBold.json();
-      console.log('jsonBold response:', jsonBold);
       if (!resBold.ok || 'error' in jsonBold) {
-        console.log('Error en bold config:', jsonBold);
         setError(jsonBold.error?.message ?? 'Error al configurar el pago.');
         setFormularioEnviado(false);
         setGuardando(false);
         return;
       }
 
-      console.log('Bold config obtained:', jsonBold.data);
       setBoldConfig(jsonBold.data);
       sessionStorage.setItem('referencia_pago', jsonBold.data.orderId);
       sessionStorage.setItem('cantidad_mensajes', String(cantidadTotal));
