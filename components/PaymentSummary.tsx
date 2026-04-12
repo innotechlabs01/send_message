@@ -83,7 +83,6 @@ export default function PaymentSummary() {
     nombre_contacto: string;
     telefono_contacto: string;
   } | null>(null);
-  const [key, setKey] = useState(0);
 
   useEffect(() => {
     const guardado = sessionStorage.getItem('datos_envio');
@@ -101,7 +100,7 @@ export default function PaymentSummary() {
     if (datosContacto) {
       setDatosContactoGuardados(datosContacto);
     }
-  }, [router, key]);
+  }, [router]);
 
   // Escuchar eventos de storage para actualizar cuando cambien mensajes guardados
   useEffect(() => {
