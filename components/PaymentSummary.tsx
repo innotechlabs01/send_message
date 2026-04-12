@@ -149,11 +149,18 @@ export default function PaymentSummary() {
       const cantidadTotal = guardados.length;
 
       if (programarMas) {
+        // Limpiar estados para evitar showing UI durante la transición
+        setDatos(null);
+        setBoldConfig(null);
+        setFormularioEnviado(false);
         setMensajesLocalStorage(cantidadTotal);
         setRedirigiendo(true);
         
-        sessionStorage.removeItem('datos_envio');
-        window.location.href = '/categorias';
+        // Pequeño delay para que el render sea limpio antes de redirigir
+        setTimeout(() => {
+          sessionStorage.removeItem('datos_envio');
+          window.location.href = '/categorias';
+        }, 50);
         return;
       }
 
