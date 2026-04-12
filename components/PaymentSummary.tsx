@@ -83,14 +83,9 @@ export default function PaymentSummary() {
     nombre_contacto: string;
     telefono_contacto: string;
   } | null>(null);
-  const [hayMensajeActual, setHayMensajeActual] = useState(false);
   const [redirigiendo, setRedirigiendo] = useState(false);
 
   const cargarDatos = () => {
-    // Verificar si hay un mensaje actual en sessionStorage
-    const datosSession = sessionStorage.getItem('datos_envio');
-    setHayMensajeActual(!!datosSession && !!JSON.parse(datosSession || '{}').texto_final);
-    
     // Cargar mensajes del localStorage
     const guardados = obtenerMensajesGuardados();
     setMensajesLocalStorage(guardados.length);
@@ -101,6 +96,11 @@ export default function PaymentSummary() {
     }
   };
 
+  // Efecto para cargar datos inmediatamente al montar
+  useEffect(() => {
+    cargarDatos();
+  }, []);
+
   useEffect(() => {
     const guardado = sessionStorage.getItem('datos_envio');
     if (!guardado) { router.replace('/categorias'); return; }
@@ -108,16 +108,14 @@ export default function PaymentSummary() {
     if (!parsed.texto_final) { router.replace('/categorias'); return; }
     setDatos(parsed);
 
-    cargarDatos();
-    
-    // Recargar cada que el componente se monta (cada navegación)
-    const interval = setInterval(cargarDatos, 300);
+    // Recargar datos cada 200ms para detectar cambios en localStorage
+    const interval = setInterval(cargarDatos, 200);
     return () => clearInterval(interval);
   }, [router]);
 
   useEffect(() => {
-    window.addEventListener('focus', cargarDatos);
-    return () => window.removeEventListener('focus', cargarDatos);
+    const interval = setInterval(cargarDatos, 200);
+    return () => clearInterval(interval);
   }, []);
 
   // Cuando el formulario de contacto se envía
@@ -241,8 +239,8 @@ export default function PaymentSummary() {
 
   if (!datos || redirigiendo) return null;
 
-  // Solo mostrar +1 si hay un mensaje actual sin guardar en localStorage
-  const cantidadTotalConActual = hayMensajeActual ? mensajesLocalStorage + 1 : mensajesLocalStorage;
+  // El mensaje actual ya está en localStorage, así que usamos solo mensajesLocalStorage
+  const cantidadTotalConActual = mensajesLocalStorage;
   const precioTotal = cantidadTotalConActual * PRECIO_UNITARIO;
 
   return (
