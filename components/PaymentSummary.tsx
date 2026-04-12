@@ -211,8 +211,6 @@ export default function PaymentSummary() {
   const iniciarPagoBold = () => {
     if (!boldConfig) return;
 
-    const appUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('.supabase.co', '.vercel.app') ?? 'https://send-message-theta.vercel.app';
-
     const checkout = new (window as unknown as { BoldCheckout: new (config: unknown) => { open: () => void } }).BoldCheckout({
       orderId: boldConfig.orderId,
       currency: boldConfig.currency,
@@ -221,7 +219,7 @@ export default function PaymentSummary() {
       integritySignature: boldConfig.integritySignature,
       description: boldConfig.descripcion,
       renderMode: 'embedded',
-      redirectionUrl: `${appUrl}/confirmacion`,
+      redirectionUrl: `${window.location.origin}/confirmacion`,
     });
 
     checkout.open();
