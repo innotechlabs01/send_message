@@ -84,6 +84,7 @@ export default function PaymentSummary() {
     telefono_contacto: string;
   } | null>(null);
   const [hayMensajeActual, setHayMensajeActual] = useState(false);
+  const [redirigiendo, setRedirigiendo] = useState(false);
 
   const cargarDatos = () => {
     // Verificar si hay un mensaje actual en sessionStorage
@@ -149,6 +150,7 @@ export default function PaymentSummary() {
 
       if (programarMas) {
         setMensajesLocalStorage(cantidadTotal);
+        setRedirigiendo(true);
         
         sessionStorage.removeItem('datos_envio');
         window.location.href = '/categorias';
@@ -230,7 +232,7 @@ export default function PaymentSummary() {
   // Mostrar botón de pago cuando está listo
   const mostrarBotonPago = listo && boldConfig;
 
-  if (!datos) return null;
+  if (!datos || redirigiendo) return null;
 
   // Solo mostrar +1 si hay un mensaje actual sin guardar en localStorage
   const cantidadTotalConActual = hayMensajeActual ? mensajesLocalStorage + 1 : mensajesLocalStorage;
