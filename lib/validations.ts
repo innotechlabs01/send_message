@@ -165,3 +165,10 @@ export const datosContactoSchema = z.object({
 
 export type DatosContactoInput = z.input<typeof datosContactoSchema>;
 export type DatosContactoOutput = z.output<typeof datosContactoSchema>;
+
+/** Schema para批量 guardar múltiples mensajes */
+export const guardarMensajesSchema = z.object({
+  mensajes: z.array(crearMensajeSchema).min(1, 'Debe haber al menos un mensaje'),
+});
+
+export type GuardarMensajesInput = z.input<typeof guardarMensajesSchema>;

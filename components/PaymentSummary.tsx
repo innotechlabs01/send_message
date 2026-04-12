@@ -146,33 +146,34 @@ export default function PaymentSummary() {
         ...datosForm,
       };
 
+      // Siempre guardar el mensaje actual en localStorage primero
+      guardarMensajeEnStorage(mensajeCompleto);
+      
+      // Obtener TODOS los mensajes del localStorage (incluidos los anteriores)
+      const guardados = obtenerMensajesGuardados();
+      const cantidadTotal = guardados.length;
+
       if (programarMas) {
-        guardarMensajeEnStorage(mensajeCompleto);
-        
         // Actualizar contador local
-        setMensajesGuardados(prev => prev + 1);
+        setMensajesGuardados(cantidadTotal);
         
         sessionStorage.removeItem('datos_envio');
-        
-        // Forzar remontaje del componente para recargar datos
         window.location.href = '/categorias';
         return;
       }
 
-      guardarMensajeEnStorage(mensajeCompleto);
-
-      const guardados = obtenerMensajesGuardados();
-      const cantidadTotal = guardados.length;
-
+      // Proceder al pago: guardar TODOS los mensajes en la base de datos
       const resMensaje = await fetch('/api/mensajes/guardar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(mensajeCompleto),
+        body: JSON.stringify({
+          mensajes: guardados, // Enviar todos los mensajes
+        }),
       });
 
       if (!resMensaje.ok) {
         const json = await resMensaje.json();
-        setError(json.error?.message ?? 'Error al guardar el mensaje.');
+        setError(json.error?.message ?? 'Error al guardar los mensajes.');
         setFormularioEnviado(false);
         setGuardando(false);
         return;
@@ -198,6 +199,13 @@ export default function PaymentSummary() {
       setBoldConfig(jsonBold.data);
       sessionStorage.setItem('referencia_pago', jsonBold.data.orderId);
       sessionStorage.setItem('cantidad_mensajes', String(cantidadTotal));
+      
+      // Limpiar localStorage después de guardar todo
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('datos_contacto');
+      setMensajesGuardados(0);
+      setDatosContactoGuardados(null);
+      
       setListo(true);
     } catch {
       setError('Error de conexión. Verifica tu internet e intenta de nuevo.');
