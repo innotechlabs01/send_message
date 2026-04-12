@@ -10,10 +10,10 @@ const CABECERAS_SEGURIDAD: Record<string, string> = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   'Content-Security-Policy': [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://unpkg.com https://checkout.bold.co",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com https://unpkg.com https://checkout.bold.co https://va.vercel-scripts.com",
     "style-src 'self' 'unsafe-inline' https://unpkg.com https://checkout.bold.co",
     "img-src 'self' data: https:",
-    "connect-src 'self' https://*.supabase.co https://checkout.bold.co",
+    "connect-src 'self' https://*.supabase.co https://checkout.bold.co https://va.vercel-scripts.com ws://localhost:*",
     "frame-src https://www.google.com https://checkout.bold.co",
     "font-src 'self'",
   ].join('; '),

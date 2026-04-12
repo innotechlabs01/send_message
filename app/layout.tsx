@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import { Analytics } from '@vercel/analytics/next';
+import { ToastProvider } from '@/components/ui/Toast';
 import './globals.css';
 import SessionCleanup from '@/components/SessionCleanup';
 
@@ -38,7 +39,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es">
       <body className={`${geistSans.variable} antialiased bg-white text-[#333333]`}>
-        <SessionCleanup>{children}</SessionCleanup>
+        <SessionCleanup>
+          <ToastProvider>
+            {children}
+          </ToastProvider>
+        </SessionCleanup>
         <Analytics />
       </body>
     </html>

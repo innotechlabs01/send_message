@@ -9,11 +9,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const estilos: Record<Variante, string> = {
   primary:
-    'bg-[#4A90D9] text-white hover:bg-[#357ABD] active:bg-[#2A6099] disabled:bg-[#A0C4E8]',
+    'bg-primary-400 text-white hover:bg-primary-500 active:bg-primary-600 disabled:bg-primary-200',
   secondary:
-    'bg-white text-[#4A90D9] border border-[#4A90D9] hover:bg-[#EBF4FF] active:bg-[#D6E9FF] disabled:opacity-50',
+    'bg-white text-primary-400 border border-primary-400 hover:bg-primary-50 active:bg-primary-100 disabled:opacity-50',
   ghost:
-    'bg-transparent text-[#4A90D9] hover:bg-[#EBF4FF] active:bg-[#D6E9FF] disabled:opacity-50',
+    'bg-transparent text-primary-400 hover:bg-primary-50 active:bg-primary-100 disabled:opacity-50',
 };
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -28,7 +28,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           'min-h-[44px] min-w-[44px] px-6 py-2.5',
           'rounded-lg font-medium text-sm',
           'transition-colors duration-150',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A90D9] focus-visible:ring-offset-2',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2',
           'cursor-pointer disabled:cursor-not-allowed',
           estilos[variante],
           className,

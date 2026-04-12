@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SendForm from '@/components/SendForm';
+import Stepper from '@/components/Stepper';
 
 interface DatosEnvio {
   texto_final: string;
@@ -32,11 +33,15 @@ export default function PaginaEnvio() {
 
   return (
     <main className="min-h-screen px-4 py-12 max-w-lg mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#333333] mb-2">Datos de envío</h1>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-[#333333] mb-1">Datos de envío</h1>
         <p className="text-[#666666] text-sm">
-          Ingresa la fecha y los celulares para programar el envío.
+          Ingresa la fecha y celulares para programar.
         </p>
+      </div>
+
+      <div className="mb-8">
+        <Stepper />
       </div>
 
       {/* Resumen del mensaje */}

@@ -7,6 +7,7 @@ import { MensajePrediseniado } from '@/types';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import MessagePreview from '@/components/MessagePreview';
+import Stepper from '@/components/Stepper';
 
 interface Errores {
   nombre_destinatario?: string;
@@ -58,11 +59,15 @@ export default function PaginaPersonalizar() {
 
   return (
     <main className="min-h-screen px-4 py-12 max-w-lg mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#333333] mb-2">Personaliza tu mensaje</h1>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-[#333333] mb-1">Personaliza tu mensaje</h1>
         <p className="text-[#666666] text-sm">
-          Ingresa los nombres para personalizar el mensaje seleccionado.
+          Ingresa los nombres para personalizar el mensaje.
         </p>
+      </div>
+
+      <div className="mb-8">
+        <Stepper />
       </div>
 
       {/* Mensaje seleccionado */}

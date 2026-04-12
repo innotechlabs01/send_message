@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { enviarDatosSchema } from '@/lib/validations';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+
+const STORAGE_KEY = 'mensajes_programados_pendientes';
 
 interface SendFormProps {
   datosIniciales: {
@@ -20,30 +22,54 @@ interface Errores {
   celular_remitente?: string;
 }
 
+interface DatosEnvio {
+  texto_final: string;
+  nombre_destinatario: string;
+  nombre_remitente: string;
+  celular_destinatario: string;
+  celular_remitente: string;
+  fecha_envio: string;
+}
+
+function obtenerMensajesPendientes(): DatosEnvio[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function SendForm({ datosIniciales }: SendFormProps) {
   const router = useRouter();
   const [fechaEnvio, setFechaEnvio] = useState('');
   const [celularDestinatario, setCelularDestinatario] = useState('');
   const [celularRemitente, setCelularRemitente] = useState('');
   const [errores, setErrores] = useState<Errores>({});
+  const [mensajesPendientes, setMensajesPendientes] = useState(0);
 
-  // Fecha mínima: hoy (usando zona horaria local, no UTC)
+  useEffect(() => {
+    const mensajes = obtenerMensajesPendientes();
+    setMensajesPendientes(mensajes.length);
+  }, []);
+
   const hoy = new Date().toLocaleDateString('en-CA');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const campos: Errores = {};
+    const nuevosErrores: Errores = {};
 
     if (celularDestinatario.length > 0 && !celularDestinatario.startsWith('3')) {
-      campos.celular_destinatario = 'Aún no tenemos disponible el servicio fuera de Colombia';
+      nuevosErrores.celular_destinatario = 'Aún no tenemos disponible el servicio fuera de Colombia';
     }
     if (celularRemitente.length > 0 && !celularRemitente.startsWith('3')) {
-      campos.celular_remitente = 'Aún no tenemos disponible el servicio fuera de Colombia';
+      nuevosErrores.celular_remitente = 'Aún no tenemos disponible el servicio fuera de Colombia';
     }
 
-    if (Object.keys(campos).length > 0) {
-      setErrores(campos);
+    if (Object.keys(nuevosErrores).length > 0) {
+      setErrores(nuevosErrores);
       return;
     }
 
@@ -66,8 +92,6 @@ export default function SendForm({ datosIniciales }: SendFormProps) {
       return;
     }
 
-    setErrores({});
-    // Guardar todos los datos en sessionStorage y navegar a pago
     sessionStorage.setItem('datos_envio', JSON.stringify(resultado.data));
     router.push('/pago');
   };
@@ -105,6 +129,11 @@ export default function SendForm({ datosIniciales }: SendFormProps) {
         hint="10 dígitos, empieza en 3"
         inputMode="numeric"
       />
+      {mensajesPendientes > 0 && (
+        <div className="bg-primary-50 border border-primary-200 rounded-lg px-3 py-2 text-sm text-primary-700">
+          Tienes {mensajesPendientes} mensaje{mensajesPendientes !== 1 ? 's' : ''} pendiente{mensajesPendientes !== 1 ? 's' : ''} de programar
+        </div>
+      )}
       <Button type="submit" variante="primary" className="w-full mt-2">
         Continuar al pago
       </Button>

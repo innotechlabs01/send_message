@@ -5,7 +5,15 @@ import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { FormularioContacto } from '@/components/FormularioContacto';
 import Button from '@/components/ui/Button';
+import { useToast } from '@/components/ui/Toast';
 import type { DatosContactoInput } from '@/lib/validations';
+
+const STORAGE_KEY = 'mensajes_programados_pendientes';
+const STORAGE_CONTACTO = 'datos_contacto';
+const SESSION_DATOS_ENVIO = 'datos_envio';
+const PRECIO_UNITARIO = 2000;
+const IVA_POR_MENSAJE = 380;
+const PRECIO_TOTAL_POR_MENSAJE = 2380;
 
 interface DatosEnvio {
   texto_final: string;
@@ -16,10 +24,10 @@ interface DatosEnvio {
   fecha_envio: string;
 }
 
-interface MensajeGuardado extends DatosEnvio {
-  email_contacto: string;
-  nombre_contacto: string;
-  telefono_contacto: string;
+interface MensajeCompleto extends DatosEnvio {
+  email_contacto?: string;
+  nombre_contacto?: string;
+  telefono_contacto?: string;
 }
 
 interface BoldConfig {
@@ -31,144 +39,135 @@ interface BoldConfig {
   descripcion: string;
 }
 
-const STORAGE_KEY = 'mensajes_programados_pendientes';
-const PRECIO_UNITARIO = 2380;
+function obtenerMensajesLocalStorage(): MensajeCompleto[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function obtenerDatosContactoLocalStorage(): { email_contacto: string; nombre_contacto: string; telefono_contacto: string } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem(STORAGE_CONTACTO);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
+function guardarMensajeLocalStorage(mensaje: MensajeCompleto): void {
+  const mensajes = obtenerMensajesLocalStorage();
+  mensajes.push(mensaje);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(mensajes));
+}
 
 function enmascararCelular(cel: string): string {
   if (!cel || cel.length < 4) return '******';
   return `******${cel.slice(-4)}`;
 }
 
-function obtenerMensajesGuardados(): MensajeGuardado[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const almacenados = localStorage.getItem(STORAGE_KEY);
-    return almacenados ? JSON.parse(almacenados) : [];
-  } catch {
-    return [];
-  }
+function formatearFecha(fechaStr: string): string {
+  const [year, month, day] = fechaStr.split('-').map(Number);
+  const fecha = new Date(year, month - 1, day);
+  return fecha.toLocaleDateString('es-CO', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
 }
 
-function obtenerDatosContactoIniciales(): { email_contacto: string; nombre_contacto: string; telefono_contacto: string } | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const datos = localStorage.getItem('datos_contacto');
-    return datos ? JSON.parse(datos) : null;
-  } catch {
-    return null;
-  }
-}
-
-function guardarMensajeEnStorage(mensaje: MensajeGuardado) {
-  if (typeof window === 'undefined') return;
-  try {
-    const existentes = obtenerMensajesGuardados();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...existentes, mensaje]));
-  } catch {
-    console.error('Error guardando en localStorage');
-  }
+function formatearPrecio(cantidad: number): string {
+  return cantidad.toLocaleString('es-CO', {
+    style: 'currency', currency: 'COP', minimumFractionDigits: 0,
+  });
 }
 
 export default function PaymentSummary() {
   const router = useRouter();
-  const [datos, setDatos] = useState<DatosEnvio | null>(null);
+  const { showToast } = useToast();
+
+  const [mensajeActual, setMensajeActual] = useState<DatosEnvio | null>(null);
+  const [mensajesPendientes, setMensajesPendientes] = useState<MensajeCompleto[]>([]);
+  const [datosContacto, setDatosContacto] = useState<{ email_contacto: string; nombre_contacto: string; telefono_contacto: string } | null>(null);
+  
   const [boldConfig, setBoldConfig] = useState<BoldConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [listo, setListo] = useState(false);
   const [formularioEnviado, setFormularioEnviado] = useState(false);
-  const [mensajesLocalStorage, setMensajesLocalStorage] = useState(0);
-  const [datosContactoGuardados, setDatosContactoGuardados] = useState<{
-    email_contacto: string;
-    nombre_contacto: string;
-    telefono_contacto: string;
-  } | null>(null);
-  const [redirigiendo, setRedirigiendo] = useState(false);
 
-  const cargarDatos = () => {
-    // Cargar mensajes del localStorage
-    const guardados = obtenerMensajesGuardados();
-    setMensajesLocalStorage(guardados.length);
+  const cantidadTotal = mensajesPendientes.length + (mensajeActual ? 1 : 0);
+  const precioIva = cantidadTotal * IVA_POR_MENSAJE;
+  const precioTotal = cantidadTotal * PRECIO_TOTAL_POR_MENSAJE;
 
-    const datosContacto = obtenerDatosContactoIniciales();
-    if (datosContacto) {
-      setDatosContactoGuardados(datosContacto);
+  useEffect(() => {
+    mensajesPendientes.forEach(m => console.log('MSG:', m));
+    console.log('Actual:', mensajeActual);
+  }, [mensajesPendientes, mensajeActual]);
+
+  useEffect(() => {
+    const mensajes = obtenerMensajesLocalStorage();
+    setMensajesPendientes(mensajes);
+
+    const contacto = obtenerDatosContactoLocalStorage();
+    if (contacto) {
+      setDatosContacto(contacto);
     }
-  };
 
-  // Efecto para cargar datos inmediatamente al montar
-  useEffect(() => {
-    cargarDatos();
-  }, []);
-
-  useEffect(() => {
-    const guardado = sessionStorage.getItem('datos_envio');
-    if (!guardado) { router.replace('/categorias'); return; }
-    const parsed = JSON.parse(guardado);
-    if (!parsed.texto_final) { router.replace('/categorias'); return; }
-    setDatos(parsed);
-
-    // Recargar datos cada 200ms para detectar cambios en localStorage
-    const interval = setInterval(cargarDatos, 200);
-    return () => clearInterval(interval);
-  }, [router]);
-
-  useEffect(() => {
-    const interval = setInterval(cargarDatos, 200);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Cuando el formulario de contacto se envía
-  const handleFormularioContactoSubmit = async (datosForm: DatosContactoInput, programarMas: boolean) => {
-    setFormularioEnviado(true);
-    setGuardando(true);
-    setError(null);
-
-    if (!datos) {
-      setGuardando(false);
+    const datosEnvio = sessionStorage.getItem(SESSION_DATOS_ENVIO);
+    if (!datosEnvio) {
+      showToast('Selecciona un mensaje para continuar', 'warning');
+      setTimeout(() => router.replace('/categorias'), 1000);
       return;
     }
 
-    // Guardar datos de contacto en localStorage inmediatamente
-    localStorage.setItem('datos_contacto', JSON.stringify(datosForm));
-    setDatosContactoGuardados(datosForm);
+    const parsed = JSON.parse(datosEnvio);
+    if (!parsed.texto_final) {
+      showToast('Personaliza tu mensaje antes de continuar', 'warning');
+      setTimeout(() => router.replace('/personalizar'), 1000);
+      return;
+    }
+
+    setMensajeActual(parsed);
+  }, [router, showToast]);
+
+  const handleFormularioSubmit = async (datosForm: DatosContactoInput, programarMas: boolean) => {
+    if (guardando || !mensajeActual) return;
+
+    setGuardando(true);
+    setError(null);
+
+    const mensajeCompleto: MensajeCompleto = {
+      ...mensajeActual,
+      ...datosForm,
+    };
+
+    localStorage.setItem(STORAGE_CONTACTO, JSON.stringify(datosForm));
+
+    if (programarMas) {
+      guardarMensajeLocalStorage(mensajeCompleto);
+      const nuevaCantidad = mensajesPendientes.length + 1;
+      showToast(`${nuevaCantidad} mensaje(s) guardado(s). ¡Programa otro!`, 'success');
+      
+      sessionStorage.removeItem(SESSION_DATOS_ENVIO);
+      setTimeout(() => {
+        window.location.href = '/categorias';
+      }, 1200);
+      return;
+    }
+
+    guardarMensajeLocalStorage(mensajeCompleto);
+    setFormularioEnviado(true);
 
     try {
-      const mensajeCompleto: MensajeGuardado = {
-        ...datos,
-        ...datosForm,
-      };
+      const todosLosMensajes = [...mensajesPendientes, mensajeCompleto];
 
-      // Siempre guardar el mensaje actual en localStorage primero
-      guardarMensajeEnStorage(mensajeCompleto);
-      
-      // Obtener TODOS los mensajes del localStorage (incluidos los anteriores)
-      const guardados = obtenerMensajesGuardados();
-      const cantidadTotal = guardados.length;
-
-      if (programarMas) {
-        // Limpiar estados para evitar showing UI durante la transición
-        setDatos(null);
-        setBoldConfig(null);
-        setFormularioEnviado(false);
-        setMensajesLocalStorage(cantidadTotal);
-        setRedirigiendo(true);
-        
-        // Pequeño delay para que el render sea limpio antes de redirigir
-        setTimeout(() => {
-          sessionStorage.removeItem('datos_envio');
-          window.location.href = '/categorias';
-        }, 50);
-        return;
-      }
-
-      // Proceder al pago: guardar TODOS los mensajes en la base de datos
       const resMensaje = await fetch('/api/mensajes/guardar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mensajes: guardados,
-        }),
+        body: JSON.stringify({ mensajes: todosLosMensajes }),
       });
 
       if (!resMensaje.ok) {
@@ -183,8 +182,8 @@ export default function PaymentSummary() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          descripcion: `${cantidadTotal} mensaje(s) programado(s)`,
-          cantidad: cantidadTotal,
+          descripcion: `${todosLosMensajes.length} mensaje(s) programado(s)`,
+          cantidad: todosLosMensajes.length,
         }),
       });
 
@@ -198,12 +197,7 @@ export default function PaymentSummary() {
 
       setBoldConfig(jsonBold.data);
       sessionStorage.setItem('referencia_pago', jsonBold.data.orderId);
-      sessionStorage.setItem('cantidad_mensajes', String(cantidadTotal));
-      
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem('datos_contacto');
-      setMensajesLocalStorage(0);
-      setDatosContactoGuardados(null);
+      sessionStorage.setItem('cantidad_mensajes', String(todosLosMensajes.length));
       
       setListo(true);
     } catch {
@@ -214,7 +208,6 @@ export default function PaymentSummary() {
     }
   };
 
-  // Inicializar y mostrar el botón de Bold
   const iniciarPagoBold = () => {
     if (!boldConfig) return;
 
@@ -234,141 +227,84 @@ export default function PaymentSummary() {
     checkout.open();
   };
 
-  // Mostrar botón de pago cuando está listo
-  const mostrarBotonPago = listo && boldConfig;
-
-  if (!datos || redirigiendo) return null;
-
-  // El mensaje actual ya está en localStorage, así que usamos solo mensajesLocalStorage
-  const cantidadTotalConActual = mensajesLocalStorage;
-  const precioTotal = cantidadTotalConActual * PRECIO_UNITARIO;
+  if (!mensajeActual) return null;
 
   return (
     <>
-      {/* Cargar SDK de Bold una sola vez */}
       <Script
         src="https://checkout.bold.co/library/boldPaymentButton.js"
         strategy="afterInteractive"
       />
 
       <div className="space-y-6">
-        {/* Contador de mensajes programados */}
-        {mensajesLocalStorage > 0 && (
-          <div className="bg-[#E8F5E9] border border-[#4CAF50] rounded-xl p-4">
-            <p className="text-sm text-[#2E7D32] font-medium">
-              ✅ Tienes {mensajesLocalStorage} mensaje{mensajesLocalStorage !== 1 ? 's' : ''} pendiente{mensajesLocalStorage !== 1 ? 's' : ''} de programar
+        {cantidadTotal > 1 && (
+          <div className="bg-success-50 border border-success-400 rounded-xl p-4">
+            <p className="text-sm text-success-600 font-medium">
+              Tienes {cantidadTotal} mensajes programados
             </p>
           </div>
         )}
 
-        {/* Resumen del pedido */}
-        <div className="bg-[#ECECEC] border border-[#CCCCCC] rounded-xl p-5 space-y-3">
-          <h2 className="font-semibold text-[#333333]">Resumen del pedido</h2>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-[#666666]">Para:</span>
-              <span className="font-medium text-[#333333]">{datos.nombre_destinatario}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[#666666]">Celular:</span>
-              <span className="font-medium text-[#333333]">{enmascararCelular(datos.celular_destinatario)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[#666666]">Fecha de envío:</span>
-              <span className="font-medium text-[#333333]">
-                {(() => {
-                  const [year, month, day] = datos.fecha_envio.split('-').map(Number);
-                  const fecha = new Date(year, month - 1, day);
-                  return fecha.toLocaleDateString('es-CO', {
-                    year: 'numeric', month: 'long', day: 'numeric',
-                  });
-                })()}
-              </span>
-            </div>
-            {boldConfig && (
-              <div className="border-t border-[#CCCCCC] pt-2 mt-2 space-y-2">
-                {/* Desglose de precio en boldConfig */}
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#666666]">Cantidad de mensajes:</span>
-                  <span className="text-[#333333] font-medium">{cantidadTotalConActual}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#666666]">Precio por mensaje:</span>
-                  <span className="text-[#333333]">
-                    {(2000).toLocaleString('es-CO', {
-                      style: 'currency', currency: 'COP', minimumFractionDigits: 0,
-                    })}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#666666]">IVA (19%):</span>
-                  <span className="text-[#333333]">
-                    {(Math.round(cantidadTotalConActual * 380)).toLocaleString('es-CO', {
-                      style: 'currency', currency: 'COP', minimumFractionDigits: 0,
-                    })}
-                  </span>
-                </div>
-                {/* Total */}
-                <div className="flex justify-between border-t border-[#CCCCCC] pt-2 font-semibold">
-                  <span className="text-[#333333]">Total a pagar:</span>
-                  <span className="text-[#4A90D9]">
-                    {boldConfig.amount.toLocaleString('es-CO', {
-                      style: 'currency', currency: 'COP', minimumFractionDigits: 0,
-                    })}
-                  </span>
-                </div>
+        {mensajeActual && (
+          <div className="bg-surface-secondary border border-border rounded-xl p-5 space-y-3">
+            <h2 className="font-semibold text-text-primary">Mensaje actual</h2>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-text-secondary">Para:</span>
+                <span className="font-medium text-text-primary">{mensajeActual.nombre_destinatario}</span>
               </div>
-            )}
+              <div className="flex justify-between">
+                <span className="text-text-secondary">Celular:</span>
+                <span className="font-medium text-text-primary">{enmascararCelular(mensajeActual.celular_destinatario)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-text-secondary">Fecha de envío:</span>
+                <span className="font-medium text-text-primary">{formatearFecha(mensajeActual.fecha_envio)}</span>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Desglose de precio (visible antes del formulario) */}
-        <div className="bg-white border border-[#CCCCCC] rounded-xl p-5 space-y-2">
-          <h2 className="font-semibold text-[#333333] mb-3">Desglose de precio</h2>
+        {mensajesPendientes.length > 0 && (
+          <div className="bg-surface-secondary border border-border rounded-xl p-5">
+            <h2 className="font-semibold text-text-primary mb-3">Mensajes guardados ({mensajesPendientes.length})</h2>
+            <div className="space-y-3 max-h-48 overflow-y-auto">
+              {mensajesPendientes.map((msg, i) => (
+                <div key={i} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
+                  <span className="text-text-secondary">Para {msg.nombre_destinatario}</span>
+                  <span className="text-text-tertiary text-xs">{formatearFecha(msg.fecha_envio)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="bg-surface-secondary border border-border rounded-xl p-5 space-y-2">
+          <h2 className="font-semibold text-text-primary mb-3">Desglose de precio</h2>
           <div className="flex justify-between text-sm">
-            <span className="text-[#666666]">Cantidad de mensajes:</span>
-            <span className="text-[#333333] font-medium">{cantidadTotalConActual}</span>
+            <span className="text-text-secondary">Cantidad de mensajes:</span>
+            <span className="font-medium text-text-primary">{cantidadTotal}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-[#666666]">Precio por mensaje:</span>
-            <span className="text-[#333333]">
-              {(2000).toLocaleString('es-CO', {
-                style: 'currency', currency: 'COP', minimumFractionDigits: 0,
-              })}
-            </span>
+            <span className="text-text-secondary">Precio por mensaje:</span>
+            <span className="text-text-primary">{formatearPrecio(PRECIO_UNITARIO)}</span>
           </div>
-          {/* <div className="flex justify-between text-sm">
-            <span className="text-[#666666]">Subtotal:</span>
-            <span className="text-[#333333]">
-              {(cantidadTotalConActual * 2000).toLocaleString('es-CO', {
-                style: 'currency', currency: 'COP', minimumFractionDigits: 0,
-              })}
-            </span>
-          </div> */}
           <div className="flex justify-between text-sm">
-            <span className="text-[#666666]">IVA (19%):</span>
-            <span className="text-[#333333]">
-              {(Math.round(cantidadTotalConActual * 380)).toLocaleString('es-CO', {
-                style: 'currency', currency: 'COP', minimumFractionDigits: 0,
-              })}
-            </span>
+            <span className="text-text-secondary">IVA (19%):</span>
+            <span className="text-text-primary">{formatearPrecio(precioIva)}</span>
           </div>
-          <div className="flex justify-between border-t border-[#CCCCCC] pt-2 mt-2">
-            <span className="font-semibold text-[#333333]">Total a pagar:</span>
-            <span className="font-bold text-[#4A90D9]">
-              {precioTotal.toLocaleString('es-CO', {
-                style: 'currency', currency: 'COP', minimumFractionDigits: 0,
-              })}
-            </span>
+          <div className="flex justify-between border-t border-border pt-2">
+            <span className="font-semibold text-text-primary">Total a pagar:</span>
+            <span className="font-bold text-primary-400">{formatearPrecio(precioTotal)}</span>
           </div>
         </div>
 
         {!formularioEnviado && (
-          <div className="bg-white border border-[#CCCCCC] rounded-xl p-5">
-            <h2 className="font-semibold text-[#333333] mb-4">Datos de contacto</h2>
+          <div className="bg-surface border border-border rounded-xl p-5">
+            <h2 className="font-semibold text-text-primary mb-4">Datos de contacto</h2>
             <FormularioContacto
-              datosIniciales={datosContactoGuardados ?? undefined}
-              onSubmit={handleFormularioContactoSubmit}
+              datosIniciales={datosContacto ?? undefined}
+              onSubmit={handleFormularioSubmit}
               isLoading={guardando}
             />
           </div>
@@ -378,22 +314,17 @@ export default function PaymentSummary() {
           <p role="alert" className="text-red-600 text-sm text-center">{error}</p>
         )}
 
-        {guardando && (
-          <p className="text-center text-sm text-[#666666]">Preparando pago...</p>
+        {guardando && !formularioEnviado && (
+          <p className="text-center text-sm text-text-tertiary">Preparando...</p>
         )}
 
-        {/* Botón de pago Bold */}
-        {mostrarBotonPago && (
-          <Button 
-            variante="primary" 
-            className="w-full"
-            onClick={iniciarPagoBold}
-          >
-            💳 Pagar con Bold
+        {listo && boldConfig && (
+          <Button variante="primary" className="w-full" onClick={iniciarPagoBold}>
+            Pagar {formatearPrecio(boldConfig.amount)}
           </Button>
         )}
 
-        <p className="text-xs text-center text-[#999999]">
+        <p className="text-xs text-center text-text-tertiary">
           Pago seguro procesado por Bold
         </p>
       </div>
