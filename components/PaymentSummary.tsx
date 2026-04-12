@@ -77,12 +77,22 @@ export default function PaymentSummary() {
   const [guardando, setGuardando] = useState(false);
   const [listo, setListo] = useState(false);
   const [formularioEnviado, setFormularioEnviado] = useState(false);
-  const [mensajesGuardados, setMensajesGuardados] = useState(0);
+  const [mensajesLocalStorage, setMensajesLocalStorage] = useState(0);
   const [datosContactoGuardados, setDatosContactoGuardados] = useState<{
     email_contacto: string;
     nombre_contacto: string;
     telefono_contacto: string;
   } | null>(null);
+
+  const cargarDatos = () => {
+    const guardados = obtenerMensajesGuardados();
+    setMensajesLocalStorage(guardados.length);
+
+    const datosContacto = obtenerDatosContactoIniciales();
+    if (datosContacto) {
+      setDatosContactoGuardados(datosContacto);
+    }
+  };
 
   useEffect(() => {
     const guardado = sessionStorage.getItem('datos_envio');
@@ -91,38 +101,16 @@ export default function PaymentSummary() {
     if (!parsed.texto_final) { router.replace('/categorias'); return; }
     setDatos(parsed);
 
-    // Cargar cantidad de mensajes guardados
-    const guardados = obtenerMensajesGuardados();
-    setMensajesGuardados(guardados.length);
-
-    // Cargar datos de contacto guardados previamente
-    const datosContacto = obtenerDatosContactoIniciales();
-    if (datosContacto) {
-      setDatosContactoGuardados(datosContacto);
-    }
+    cargarDatos();
+    
+    // Recargar cada que el componente se monta (cada navegación)
+    const interval = setInterval(cargarDatos, 300);
+    return () => clearInterval(interval);
   }, [router]);
 
-  // Escuchar eventos de storage para actualizar cuando cambien mensajes guardados
   useEffect(() => {
-    const recargarDatos = () => {
-      const guardados = obtenerMensajesGuardados();
-      setMensajesGuardados(guardados.length);
-      
-      const datosContacto = obtenerDatosContactoIniciales();
-      if (datosContacto) {
-        setDatosContactoGuardados(datosContacto);
-      }
-    };
-
-    window.addEventListener('storage', recargarDatos);
-    window.addEventListener('focus', recargarDatos);
-    const interval = setInterval(recargarDatos, 500);
-
-    return () => {
-      window.removeEventListener('storage', recargarDatos);
-      window.removeEventListener('focus', recargarDatos);
-      clearInterval(interval);
-    };
+    window.addEventListener('focus', cargarDatos);
+    return () => window.removeEventListener('focus', cargarDatos);
   }, []);
 
   // Cuando el formulario de contacto se envía
@@ -131,14 +119,14 @@ export default function PaymentSummary() {
     setGuardando(true);
     setError(null);
 
-    // Guardar datos de contacto en localStorage inmediatamente
-    localStorage.setItem('datos_contacto', JSON.stringify(datosForm));
-    setDatosContactoGuardados(datosForm);
-
     if (!datos) {
       setGuardando(false);
       return;
     }
+
+    // Guardar datos de contacto en localStorage inmediatamente
+    localStorage.setItem('datos_contacto', JSON.stringify(datosForm));
+    setDatosContactoGuardados(datosForm);
 
     try {
       const mensajeCompleto: MensajeGuardado = {
@@ -154,8 +142,7 @@ export default function PaymentSummary() {
       const cantidadTotal = guardados.length;
 
       if (programarMas) {
-        // Actualizar contador local
-        setMensajesGuardados(cantidadTotal);
+        setMensajesLocalStorage(cantidadTotal);
         
         sessionStorage.removeItem('datos_envio');
         window.location.href = '/categorias';
@@ -167,7 +154,7 @@ export default function PaymentSummary() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mensajes: guardados, // Enviar todos los mensajes
+          mensajes: guardados,
         }),
       });
 
@@ -200,10 +187,9 @@ export default function PaymentSummary() {
       sessionStorage.setItem('referencia_pago', jsonBold.data.orderId);
       sessionStorage.setItem('cantidad_mensajes', String(cantidadTotal));
       
-      // Limpiar localStorage después de guardar todo
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem('datos_contacto');
-      setMensajesGuardados(0);
+      setMensajesLocalStorage(0);
       setDatosContactoGuardados(null);
       
       setListo(true);
@@ -240,7 +226,7 @@ export default function PaymentSummary() {
 
   if (!datos) return null;
 
-  const cantidadTotalConActual = mensajesGuardados + 1;
+  const cantidadTotalConActual = mensajesLocalStorage + 1;
   const precioTotal = cantidadTotalConActual * PRECIO_UNITARIO;
 
   return (
@@ -253,10 +239,10 @@ export default function PaymentSummary() {
 
       <div className="space-y-6">
         {/* Contador de mensajes programados */}
-        {mensajesGuardados > 0 && (
+        {mensajesLocalStorage > 0 && (
           <div className="bg-[#E8F5E9] border border-[#4CAF50] rounded-xl p-4">
             <p className="text-sm text-[#2E7D32] font-medium">
-              ✅ Tienes {mensajesGuardados} mensaje{mensajesGuardados !== 1 ? 's' : ''} pendiente{mensajesGuardados !== 1 ? 's' : ''} de programar
+              ✅ Tienes {mensajesLocalStorage} mensaje{mensajesLocalStorage !== 1 ? 's' : ''} pendiente{mensajesLocalStorage !== 1 ? 's' : ''} de programar
             </p>
           </div>
         )}
