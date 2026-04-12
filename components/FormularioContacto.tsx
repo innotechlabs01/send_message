@@ -6,18 +6,24 @@ import Button from '@/components/ui/Button';
 import { DatosContactoInput, datosContactoSchema } from '@/lib/validations';
 
 interface FormularioContactoProps {
+  datosIniciales?: {
+    email_contacto: string;
+    nombre_contacto: string;
+    telefono_contacto: string;
+  };
   onSubmit: (datos: DatosContactoInput, programarMas: boolean) => void;
   isLoading?: boolean;
 }
 
 export function FormularioContacto({
+  datosIniciales,
   onSubmit,
   isLoading = false,
 }: FormularioContactoProps) {
   const [formData, setFormData] = useState({
-    email_contacto: '',
-    nombre_contacto: '',
-    telefono_contacto: '',
+    email_contacto: datosIniciales?.email_contacto ?? '',
+    nombre_contacto: datosIniciales?.nombre_contacto ?? '',
+    telefono_contacto: datosIniciales?.telefono_contacto ?? '',
   });
 
   const [programarMas, setProgramarMas] = useState(true);

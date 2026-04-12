@@ -49,6 +49,16 @@ function obtenerMensajesGuardados(): MensajeGuardado[] {
   }
 }
 
+function obtenerDatosContactoIniciales(): { email_contacto: string; nombre_contacto: string; telefono_contacto: string } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const datos = localStorage.getItem('datos_contacto');
+    return datos ? JSON.parse(datos) : null;
+  } catch {
+    return null;
+  }
+}
+
 function guardarMensajeEnStorage(mensaje: MensajeGuardado) {
   if (typeof window === 'undefined') return;
   try {
@@ -68,6 +78,12 @@ export default function PaymentSummary() {
   const [listo, setListo] = useState(false);
   const [formularioEnviado, setFormularioEnviado] = useState(false);
   const [mensajesGuardados, setMensajesGuardados] = useState(0);
+  const [datosContactoGuardados, setDatosContactoGuardados] = useState<{
+    email_contacto: string;
+    nombre_contacto: string;
+    telefono_contacto: string;
+  } | null>(null);
+  const [key, setKey] = useState(0);
 
   useEffect(() => {
     const guardado = sessionStorage.getItem('datos_envio');
@@ -79,13 +95,46 @@ export default function PaymentSummary() {
     // Cargar cantidad de mensajes guardados
     const guardados = obtenerMensajesGuardados();
     setMensajesGuardados(guardados.length);
-  }, [router]);
+
+    // Cargar datos de contacto guardados previamente
+    const datosContacto = obtenerDatosContactoIniciales();
+    if (datosContacto) {
+      setDatosContactoGuardados(datosContacto);
+    }
+  }, [router, key]);
+
+  // Escuchar eventos de storage para actualizar cuando cambien mensajes guardados
+  useEffect(() => {
+    const recargarDatos = () => {
+      const guardados = obtenerMensajesGuardados();
+      setMensajesGuardados(guardados.length);
+      
+      const datosContacto = obtenerDatosContactoIniciales();
+      if (datosContacto) {
+        setDatosContactoGuardados(datosContacto);
+      }
+    };
+
+    window.addEventListener('storage', recargarDatos);
+    window.addEventListener('focus', recargarDatos);
+    const interval = setInterval(recargarDatos, 500);
+
+    return () => {
+      window.removeEventListener('storage', recargarDatos);
+      window.removeEventListener('focus', recargarDatos);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Cuando el formulario de contacto se envía
   const handleFormularioContactoSubmit = async (datosForm: DatosContactoInput, programarMas: boolean) => {
     setFormularioEnviado(true);
     setGuardando(true);
     setError(null);
+
+    // Guardar datos de contacto en localStorage inmediatamente
+    localStorage.setItem('datos_contacto', JSON.stringify(datosForm));
+    setDatosContactoGuardados(datosForm);
 
     if (!datos) {
       setGuardando(false);
@@ -100,7 +149,13 @@ export default function PaymentSummary() {
 
       if (programarMas) {
         guardarMensajeEnStorage(mensajeCompleto);
+        
+        // Actualizar contador local
+        setMensajesGuardados(prev => prev + 1);
+        
         sessionStorage.removeItem('datos_envio');
+        
+        // Forzar remontaje del componente para recargar datos
         window.location.href = '/categorias';
         return;
       }
@@ -305,6 +360,7 @@ export default function PaymentSummary() {
           <div className="bg-white border border-[#CCCCCC] rounded-xl p-5">
             <h2 className="font-semibold text-[#333333] mb-4">Datos de contacto</h2>
             <FormularioContacto
+              datosIniciales={datosContactoGuardados ?? undefined}
               onSubmit={handleFormularioContactoSubmit}
               isLoading={guardando}
             />
