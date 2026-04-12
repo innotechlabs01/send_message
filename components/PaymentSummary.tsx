@@ -83,8 +83,14 @@ export default function PaymentSummary() {
     nombre_contacto: string;
     telefono_contacto: string;
   } | null>(null);
+  const [hayMensajeActual, setHayMensajeActual] = useState(false);
 
   const cargarDatos = () => {
+    // Verificar si hay un mensaje actual en sessionStorage
+    const datosSession = sessionStorage.getItem('datos_envio');
+    setHayMensajeActual(!!datosSession && !!JSON.parse(datosSession || '{}').texto_final);
+    
+    // Cargar mensajes del localStorage
     const guardados = obtenerMensajesGuardados();
     setMensajesLocalStorage(guardados.length);
 
@@ -226,7 +232,8 @@ export default function PaymentSummary() {
 
   if (!datos) return null;
 
-  const cantidadTotalConActual = mensajesLocalStorage + 1;
+  // Solo mostrar +1 si hay un mensaje actual sin guardar en localStorage
+  const cantidadTotalConActual = hayMensajeActual ? mensajesLocalStorage + 1 : mensajesLocalStorage;
   const precioTotal = cantidadTotalConActual * PRECIO_UNITARIO;
 
   return (
