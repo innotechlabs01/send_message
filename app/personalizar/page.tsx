@@ -7,7 +7,8 @@ import { MensajePrediseniado } from '@/types';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import MessagePreview from '@/components/MessagePreview';
-import Stepper from '@/components/Stepper';
+import HeaderBrand from '@/components/header-brand';
+import PasoIndicator from '@/components/paso-indicator';
 
 interface Errores {
   nombre_destinatario?: string;
@@ -58,69 +59,72 @@ export default function PaginaPersonalizar() {
   if (!mensaje) return null;
 
   return (
-    <main className="min-h-screen px-4 py-12 max-w-lg mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[#333333] mb-1">Personaliza tu mensaje</h1>
-        <p className="text-[#666666] text-sm">
-          Ingresa los nombres para personalizar el mensaje.
-        </p>
-      </div>
+    <main className="w-full min-h-screen bg-neutral-100 text-text-primary font-poppins">
+      <div className="mx-auto flex w-full max-w-[1280px] flex-col px-6 pt-10 pb-16">
+        <HeaderBrand />
+        <PasoIndicator texto="Paso 3 / 4" href={`/mensajes/${mensaje.categoria_id}`} />
 
-      <div className="mb-8">
-        <Stepper />
-      </div>
+        <section className="mt-8">
+          <h1 className="text-3xl font-bold text-text-primary sm:text-4xl">Confirmar mensaje</h1>
+          <p className="mt-2 text-base text-text-secondary">Completa los datos para personalizar tu mensaje.</p>
+        </section>
 
-      {/* Mensaje seleccionado */}
-      <div className="bg-[#ECECEC] border border-[#CCCCCC] rounded-xl p-4 mb-8">
-        <p className="text-xs text-[#666666] mb-1 font-medium uppercase tracking-wide">
-          Mensaje seleccionado
-        </p>
-        <p className="text-sm text-[#333333] leading-relaxed line-clamp-3">{mensaje.texto}</p>
-      </div>
+        {/* Mensaje seleccionado */}
+        <section className="mt-8">
+          <p className="text-xs font-medium text-text-secondary mb-2">Mensaje seleccionado</p>
+          <div className="rounded-[24px] border border-[#E8E8E8] bg-white p-5 shadow-xs">
+            <p className="text-sm text-text-secondary leading-relaxed line-clamp-3">{mensaje.texto}</p>
+          </div>
+        </section>
 
-      {/* Formulario */}
-      <form onSubmit={handleGenerar} noValidate className="space-y-5">
-        <Input
-          label="Nombre del destinatario"
-          placeholder="Ej: María"
-          value={nombreDestinatario}
-          onChange={(e) => setNombreDestinatario(e.target.value)}
-          error={errores.nombre_destinatario}
-          hint="¿A quién le envías el mensaje?"
-          autoComplete="off"
+        {/* Formulario */}
+        <form onSubmit={handleGenerar} noValidate className="mt-8 space-y-5">
+          <Input
+            label="Nombre del destinatario"
+            placeholder="Ej: María"
+            value={nombreDestinatario}
+            onChange={(e) => setNombreDestinatario(e.target.value)}
+            error={errores.nombre_destinatario}
+            autoComplete="off"
+          />
+          <Input
+            label="Tu nombre"
+            placeholder="Ej: Carlos"
+            value={nombreRemitente}
+            onChange={(e) => setNombreRemitente(e.target.value)}
+            error={errores.nombre_remitente}
+            autoComplete="off"
+          />
+          <div className="pt-2">
+            <Button type="submit" variante="primary" className="w-full">
+              Generar mensaje
+            </Button>
+          </div>
+        </form>
+
+        {/* Modal de vista previa */}
+        <MessagePreview
+          abierto={modalAbierto}
+          datos={{
+            nombreDestinatario,
+            nombreRemitente,
+            textoBase: mensaje.texto,
+          }}
+          onCerrar={() => setModalAbierto(false)}
+          onAceptar={(textoFinal) => {
+            sessionStorage.setItem(
+              'datos_envio',
+              JSON.stringify({ texto_final: textoFinal, nombre_destinatario: nombreDestinatario, nombre_remitente: nombreRemitente })
+            );
+            setModalAbierto(false);
+            router.push('/envio');
+          }}
         />
-        <Input
-          label="Tu nombre"
-          placeholder="Ej: Carlos"
-          value={nombreRemitente}
-          onChange={(e) => setNombreRemitente(e.target.value)}
-          error={errores.nombre_remitente}
-          hint="¿Quién envía el mensaje?"
-          autoComplete="off"
-        />
-        <Button type="submit" variante="primary" className="w-full mt-2">
-          Generar mensaje
-        </Button>
-      </form>
 
-       {/* Modal de vista previa */}
-       <MessagePreview
-         abierto={modalAbierto}
-         datos={{
-           nombreDestinatario,
-           nombreRemitente,
-           textoBase: mensaje.texto,
-         }}
-         onCerrar={() => setModalAbierto(false)}
-         onAceptar={(textoFinal) => {
-           sessionStorage.setItem(
-             'datos_envio',
-             JSON.stringify({ texto_final: textoFinal, nombre_destinatario: nombreDestinatario, nombre_remitente: nombreRemitente })
-           );
-           setModalAbierto(false);
-           router.push('/envio');
-         }}
-       />
+        <footer className="mt-12 text-center text-sm text-text-tertiary">
+          <p>© 2026 ConSentido - Palabras con intención</p>
+        </footer>
+      </div>
     </main>
   );
 }

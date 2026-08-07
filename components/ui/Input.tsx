@@ -4,46 +4,51 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   error?: string;
   hint?: string;
+  icono?: React.ReactNode;
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, hint, id, className = '', ...props }, ref) => {
+  ({ label, error, hint, icono, id, className = '', ...props }, ref) => {
     const inputId = id ?? label.toLowerCase().replace(/\s+/g, '-');
     const errorId = `${inputId}-error`;
     const hintId = `${inputId}-hint`;
 
-    const estadoClase = error
-      ? 'border-red-500 focus:ring-red-500'
-      : 'border-[#CCCCCC] focus:ring-[#4A90D9]';
+    const bordeClase = error
+      ? 'border-red-400 focus:ring-red-400'
+      : 'border-[#D9D9D9] focus:border-primary-450 focus:ring-primary-300';
 
     return (
-      <div className="flex flex-col gap-1">
-        <label htmlFor={inputId} className="text-sm font-medium text-[#333333]">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor={inputId} className="text-sm font-medium text-text-primary">
           {label}
         </label>
-        <input
-          ref={ref}
-          id={inputId}
-          aria-invalid={!!error}
-          aria-describedby={[error ? errorId : '', hint ? hintId : ''].filter(Boolean).join(' ') || undefined}
-          className={[
-            'min-h-[44px] px-3 py-2 rounded-lg border bg-white text-[#333333]',
-            'text-sm placeholder:text-[#999999]',
-            'focus:outline-none focus:ring-2 focus:ring-offset-0',
-            'disabled:bg-[#F5F5F5] disabled:cursor-not-allowed disabled:text-[#999999]',
-            'transition-colors duration-150',
-            estadoClase,
-            className,
-          ].join(' ')}
-          {...props}
-        />
+        <div className="relative">
+          {icono && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary">{icono}</div>}
+          <input
+            ref={ref}
+            id={inputId}
+            aria-invalid={!!error}
+            aria-describedby={[error ? errorId : '', hint ? hintId : ''].filter(Boolean).join(' ') || undefined}
+            className={[
+              'w-full h-12 min-h-[44px]',
+              icono ? 'pl-11 pr-3' : 'px-3',
+              'rounded-screen border bg-white text-text-primary',
+              'text-sm placeholder:text-text-tertiary',
+              'outline-none transition-all duration-150',
+              'focus:ring-2 focus:ring-offset-0',
+              bordeClase,
+              className,
+            ].join(' ')}
+            {...props}
+          />
+        </div>
         {hint && !error && (
-          <p id={hintId} className="text-xs text-[#666666]">
+          <p id={hintId} className="text-xs text-text-tertiary">
             {hint}
           </p>
         )}
         {error && (
-          <p id={errorId} role="alert" className="text-xs text-red-600">
+          <p id={errorId} role="alert" className="text-xs text-red-500">
             {error}
           </p>
         )}

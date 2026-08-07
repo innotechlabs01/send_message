@@ -3,29 +3,52 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-poppins: "Poppins", system-ui, sans-serif;
+  --background: #FAFAFE;
+  --foreground: #1A1A1A;
+  --color-primary: #2269ED;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
+  font-feature-settings: "lnum" 1;
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  .font-poppins { font-family: var(--font-poppins); }
+  .text-balance { text-wrap: balance; }
+  /* Spring timing alias */
+  .ease-spring { transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  /* Screen design wrapper: fixed 1280px canvas scaled to fit viewport */
+  .design-canvas {
+    position: relative;
+    width: 100%;
+    max-width: 1280px;
+    margin-inline: auto;
+    padding: 40px 0;
+  }
+  .design-canvas .design-frame {
+    position: relative;
+    width: 1280px;
+    height: auto;
+    margin-inline: auto;
+    background: #ffffff;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,.10);
   }
 
-  /* Utilidad para animaciones con efecto spring */
-  .ease-spring {
-    transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  @media (max-width: 768px) {
+    .design-canvas .design-frame {
+      transform: scale(0.65);
+      transform-origin: top center;
+    }
+  }
+  @media (max-width: 600px) {
+    .design-canvas .design-frame { transform: scale(0.48); }
+  }
+  @media (min-width: 1280px) {
+    .design-canvas .design-frame { transform: scale(1); }
   }
 }

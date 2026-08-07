@@ -2,22 +2,25 @@ import { HTMLAttributes } from 'react';
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   clickable?: boolean;
+  elevated?: boolean;
+  border?: boolean;
 }
 
-export default function Card({ clickable = false, children, className = '', ...props }: CardProps) {
+export default function Card({ clickable = false, elevated = false, border = true, children, className = '', ...props }: CardProps) {
   return (
     <div
       className={[
-        'bg-[#ECECEC] border border-[#CCCCCC] rounded-xl shadow-sm',
-        'p-4 sm:p-6',
+        'bg-white rounded-[24px]',
+        border ? 'border border-[#E8E8E8]' : '',
+        elevated ? 'shadow-soft' : 'shadow-xs',
         clickable
-          ? 'cursor-pointer hover:shadow-md hover:border-[#4A90D9] transition-all duration-150 active:scale-[0.98]'
+          ? 'cursor-pointer transition-all duration-150 hover:border-[#6C9BF3] hover:shadow-hover active:scale-[0.98]'
           : '',
         className,
       ].join(' ')}
       {...props}
     >
-      {children}
-    </div>
+        {children}
+      </div>
   );
 }

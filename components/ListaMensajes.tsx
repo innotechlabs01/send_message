@@ -2,16 +2,17 @@
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { MensajePrediseniado } from '@/types';
+import { MensajePrediseniado, Categoria } from '@/types';
 import MessageCard from '@/components/MessageCard';
 import Button from '@/components/ui/Button';
 
 interface ListaMensajesProps {
   mensajesIniciales: MensajePrediseniado[];
   categoriaId: string;
+  categoria?: Categoria;
 }
 
-export default function ListaMensajes({ mensajesIniciales, categoriaId }: ListaMensajesProps) {
+export default function ListaMensajes({ mensajesIniciales, categoriaId, categoria }: ListaMensajesProps) {
   const router = useRouter();
   const [mensajes, setMensajes] = useState<MensajePrediseniado[]>(mensajesIniciales);
   const [idsVistos, setIdsVistos] = useState<string[]>(mensajesIniciales.map((m) => m.id));
@@ -49,31 +50,37 @@ export default function ListaMensajes({ mensajesIniciales, categoriaId }: ListaM
     }
   }, [categoriaId, idsVistos]);
 
-  const seleccionar = useCallback((mensaje: MensajePrediseniado) => {
-    // Guardar en sessionStorage para la siguiente pantalla
-    sessionStorage.setItem('mensaje_seleccionado', JSON.stringify(mensaje));
-    router.push('/personalizar');
-  }, [router]);
+  const seleccionar = useCallback(
+    (mensaje: MensajePrediseniado) => {
+      sessionStorage.setItem('mensaje_seleccionado', JSON.stringify(mensaje));
+      if (categoriaId) sessionStorage.setItem('categoria_id', categoriaId);
+      router.push('/personalizar');
+    },
+    [router, categoriaId]
+  );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {error && (
-        <p role="alert" className="text-red-600 text-sm text-center">
-          {error}
-        </p>
+        <p role="alert" className="text-red-600 text-sm text-center">{error}</p>
       )}
 
-      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4" aria-label="Mensajes disponibles">
-        {mensajes.map((m) => (
+      <ul className="space-y-3" aria-label="Mensajes disponibles">
+        {mensajes.map((m, i) => (
           <li key={m.id}>
-            <MessageCard mensaje={m} onSeleccionar={seleccionar} />
+            <MessageCard
+              mensaje={m}
+              indice={i}
+              categoria={categoria?.nombre}
+              onSeleccionar={seleccionar}
+            />
           </li>
         ))}
       </ul>
 
-      <div className="flex justify-center">
+      <div className="flex justify-center pt-2">
         {sinMas ? (
-          <p className="text-sm text-[#666666]">No hay más mensajes en esta categoría.</p>
+          <p className="text-sm text-text-tertiary">No hay más mensajes en esta categoría.</p>
         ) : (
           <Button variante="secondary" onClick={verOtros} cargando={cargando} disabled={cargando}>
             Ver otros 5

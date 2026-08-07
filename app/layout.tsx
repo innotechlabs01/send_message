@@ -1,14 +1,15 @@
 import type { Metadata } from 'next';
-import localFont from 'next/font/local';
+import { Poppins } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
 import { ToastProvider } from '@/components/ui/Toast';
 import './globals.css';
 import SessionCleanup from '@/components/SessionCleanup';
 
-const geistSans = localFont({
-  src: './fonts/GeistVF.woff',
-  variable: '--font-geist-sans',
-  weight: '100 900',
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-poppins',
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -38,7 +39,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className={`${geistSans.variable} antialiased bg-white text-[#333333]`}>
+      <body className={`${poppins.variable} font-poppins antialiased bg-neutral-100 text-text-primary`}>
         <SessionCleanup>
           <ToastProvider>
             {children}

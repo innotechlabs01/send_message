@@ -1,6 +1,6 @@
 import { ButtonHTMLAttributes, forwardRef } from 'react';
 
-type Variante = 'primary' | 'secondary' | 'ghost';
+type Variante = 'primary' | 'secondary' | 'terciary';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variante?: Variante;
@@ -9,11 +9,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const estilos: Record<Variante, string> = {
   primary:
-    'bg-primary-400 text-white hover:bg-primary-500 active:bg-primary-600 disabled:bg-primary-200',
+    "bg-primary-450 text-white hover:bg-primary-600 active:bg-primary-700 focus:ring-2 focus:ring-primary-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
   secondary:
-    'bg-white text-primary-400 border border-primary-400 hover:bg-primary-50 active:bg-primary-100 disabled:opacity-50',
-  ghost:
-    'bg-transparent text-primary-400 hover:bg-primary-50 active:bg-primary-100 disabled:opacity-50',
+    "bg-white text-primary-600 border border-[#E8E8E8] hover:bg-[#E5F1FD] active:bg-[#D4E6FC] focus:ring-2 focus:ring-primary-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
+  terciary:
+    "bg-transparent text-primary-600 hover:bg-[#E5F1FD] active:bg-[#D4E6FC] focus:ring-2 focus:ring-primary-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
 };
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -24,12 +24,10 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={disabled || cargando}
         aria-busy={cargando}
         className={[
-          'inline-flex items-center justify-center gap-2',
-          'min-h-[44px] min-w-[44px] px-6 py-2.5',
-          'rounded-lg font-medium text-sm',
-          'transition-colors duration-150',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2',
-          'cursor-pointer disabled:cursor-not-allowed',
+          'inline-inline-flex items-center justify-center gap-2',
+          'h-12 min-h-[44px] min-w-[44px] px-6',
+          'rounded-screen font-medium text-base transition-all duration-150',
+          'cursor-pointer',
           estilos[variante],
           className,
         ].join(' ')}

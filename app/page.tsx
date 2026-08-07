@@ -15,63 +15,66 @@ export const metadata: Metadata = {
 
 export default function PaginaBienvenida() {
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-4 py-16 bg-gradient-to-b from-[#EBF4FF] to-white">
-      <div className="max-w-md w-full text-center space-y-8">
-        {/* Logo / Ícono */}
-        <div className="flex justify-center">
-          <div
-            className="w-24 h-24 rounded-full bg-[#4A90D9] flex items-center justify-center shadow-lg"
-            aria-hidden="true"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-12 w-12 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={1.5}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
-              />
-            </svg>
+    <main className="w-full min-h-screen bg-neutral-100 text-text-primary font-poppins">
+      <div className="mx-auto flex w-full max-w-[1280px] flex-col items-center px-6 pt-12 pb-16">
+        {/* Header */}
+        <header className="flex w-full items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl font-extrabold text-primary-450">Con</span>
+            <span className="text-3xl font-extrabold text-primary-600">Sentido</span>
           </div>
-        </div>
+          <div className="relative flex items-center gap-2 rounded-screen bg-white px-3 py-1.5 shadow">
+            <span className="sr-only">Carrito</span>
+            <svg className="h-5 w-5 text-text-tertiary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+              <path d="M2.25 8.25h1.343c.525 0 .96-.413 1.09-.928a1.5 1.5 0 0 1 1.06-1.06l.546-.218a.75.75 0 0 1 .954.625v.094c0 .239-.1.295-.414.617l-.332.323a.75.75 0 0 0 0 1.061l.273.273a1.5 1.5 0 0 1 0 2.12l-.53.53a.75.75 0 0 0-.217.526v.258a.75.75 0 0 0 1.28.519l.27-.27a1.5 1.5 0 0 1 2.12 0l.53.53..." />
+            </svg>
+            <span className="text-sm font-medium text-text-primary">1</span>
+          </div>
+        </header>
 
-        {/* Título */}
-        <div className="space-y-3">
-          <h1 className="text-4xl font-bold text-[#333333] tracking-tight">ConSentido</h1>
-          <p className="text-lg text-[#666666] leading-relaxed">
-            Envía mensajes con corazón para los momentos que importan.
-            <br />
-            Cumpleaños, aniversarios y mucho más.
+        {/* Hero */}
+        <section className="mt-12 w-full text-center">
+          <h1 className="text-4xl font-extrabold text-text-primary sm:text-5xl">
+            Mensajes únicos generados por IA
+          </h1>
+          <p className="mt-5 text-lg text-text-secondary max-sm:text-base">
+            Las palabras justas para los momentos que importan
           </p>
-        </div>
 
-        {/* CTA */}
-        <div className="pt-4">
-          <Link href="/categorias" className="block">
-            <Button variante="primary" className="w-full text-base py-3">
-              Crear nuevo mensaje
-            </Button>
-          </Link>
-        </div>
+          <div className="mt-10 flex flex-col items-center gap-4">
+            <Link href="/categorias" className="w-full max-w-sm">
+              <Button variante="primary" className="h-13 w-full text-base font-semibold shadow-[0_16px_32px_#2fa5fd]">
+                Empezar ahora
+              </Button>
+            </Link>
 
-        {/* Características */}
-        <ul className="grid grid-cols-3 gap-4 pt-4 text-sm text-[#666666]" aria-label="Características">
+            <p className="text-sm text-text-tertiary">
+              Envío programado a todo el país
+            </p>
+          </div>
+        </section>
+
+        {/* Steps */}
+        <section className="mt-16 grid w-full max-w-2xl gap-8 text-center sm:grid-cols-3">
           {[
-            { icono: '✉️', texto: 'Mensajes prediseñados' },
-            { icono: '⏰', texto: 'Envío programado' },
-            { icono: '📱', texto: 'Vía SMS' },
-          ].map(({ icono, texto }) => (
-            <li key={texto} className="flex flex-col items-center gap-1">
-              <span className="text-2xl" aria-hidden="true">{icono}</span>
-              <span>{texto}</span>
-            </li>
+            { n: 1, titulo: 'Elige la ocasión', desc: 'Cumpleaños, aniversarios, graduaciones y más.' },
+            { n: 2, titulo: '5 mensajes con IA', desc: 'Recibe cinco opciones prediseñadas en segundos.' },
+            { n: 3, titulo: 'Envía con intención', desc: 'Programa y envía via SMS a quien quieras.' },
+          ].map((p) => (
+            <div key={p.n} className="flex flex-col items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-450 text-white font-bold">
+                {p.n}
+              </span>
+              <h3 className="text-lg font-semibold text-text-primary">{p.titulo}</h3>
+              <p className="text-sm text-text-tertiary">{p.desc}</p>
+            </div>
           ))}
-        </ul>
+        </section>
+
+        {/* Footer */}
+        <footer className="mt-16 w-full text-center text-sm text-text-tertiary">
+          <p>© 2026 ConSentido - Palabras con intención</p>
+        </footer>
       </div>
     </main>
   );

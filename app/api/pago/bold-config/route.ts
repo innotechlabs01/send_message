@@ -43,14 +43,37 @@ export async function POST(request: NextRequest) {
   const orderId = `MSG-${Date.now()}`;
   const integritySignature = generarIntegrityHash(orderId, amount, CURRENCY, secretKey);
 
-  return NextResponse.json({
-    data: {
-      orderId,
-      amount,
-      currency: CURRENCY,
-      apiKey,
-      integritySignature,
-      descripcion: body.descripcion ?? `${cantidad} mensaje(s) programado(s) ConSentido`,
-    },
-  });
+  const boldConfig = {
+    orderId,
+    amount,
+    currency: CURRENCY,
+    apiKey,
+    integritySignature,
+    descripcion: body.descripcion ?? `${cantidad} mensaje(s) programado(s) ConSentido`,
+  };
+
+  // Guardar orden en base de datos
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1';
+  const userAgent = request.headers.get('user-agent') ?? 'unknown';
+
+  try {
+    await supabase
+      .from('pagos')
+      .insert({
+        order_id: orderId,
+        amount,
+        currency: CURRENCY,
+        descripcion: boldConfig.descripcion,
+        bold_config: boldConfig,
+        cantidad_mensajes: cantidad,
+        user_ip: ip,
+        user_agent: userAgent,
+        estado: 'pendiente',
+      });
+  } catch (dbError) {
+    console.error('Error guardando orden:', dbError);
+    // Continuar aunque falle el guardado en DB, el pago puede proceder
+  }
+
+  return NextResponse.json({ data: boldConfig });
 }

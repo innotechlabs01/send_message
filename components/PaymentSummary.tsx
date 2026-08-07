@@ -118,6 +118,41 @@ export default function PaymentSummary() {
 
     const datosEnvio = sessionStorage.getItem(SESSION_DATOS_ENVIO);
     if (!datosEnvio) {
+      const savedBoldConfig = sessionStorage.getItem('bold_config');
+      if (savedBoldConfig) {
+        try {
+          const parsedBold = JSON.parse(savedBoldConfig);
+          setBoldConfig(parsedBold);
+          setListo(true);
+          return;
+        } catch {
+          sessionStorage.removeItem('bold_config');
+        }
+      }
+
+      // NUEVO: Validar con servidor usando referencia_pago
+      const orderId = sessionStorage.getItem('referencia_pago');
+      if (orderId) {
+        fetch(`/api/pago/validar?orderId=${encodeURIComponent(orderId)}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.valid && data.config) {
+              setBoldConfig(data.config);
+              sessionStorage.setItem('bold_config', JSON.stringify(data.config));
+              setListo(true);
+            } else {
+              sessionStorage.removeItem('referencia_pago');
+              showToast('Selecciona un mensaje para continuar', 'warning');
+              setTimeout(() => router.replace('/categorias'), 1000);
+            }
+          })
+          .catch(() => {
+            showToast('Selecciona un mensaje para continuar', 'warning');
+            setTimeout(() => router.replace('/categorias'), 1000);
+          });
+        return;
+      }
+
       showToast('Selecciona un mensaje para continuar', 'warning');
       setTimeout(() => router.replace('/categorias'), 1000);
       return;
@@ -196,6 +231,7 @@ export default function PaymentSummary() {
       }
 
       setBoldConfig(jsonBold.data);
+      sessionStorage.setItem('bold_config', JSON.stringify(jsonBold.data));
       sessionStorage.setItem('referencia_pago', jsonBold.data.orderId);
       sessionStorage.setItem('cantidad_mensajes', String(todosLosMensajes.length));
       
@@ -210,6 +246,9 @@ export default function PaymentSummary() {
 
   const iniciarPagoBold = () => {
     if (!boldConfig) return;
+
+    // Notificar al usuario que será redirigido a la pasarela de pagos (toast del diseño)
+    showToast('Te dirigiremos a la pasarela de pagos para finalizar el pago.', 'info');
 
     const checkout = new (window as unknown as { BoldCheckout: new (config: unknown) => { open: () => void } }).BoldCheckout({
       orderId: boldConfig.orderId,
@@ -236,7 +275,7 @@ export default function PaymentSummary() {
 
       <div className="space-y-6">
         {cantidadTotal > 1 && (
-          <div className="bg-success-50 border border-success-400 rounded-xl p-4">
+          <div className="bg-success-50 border border-success-400 rounded-[24px] p-4">
             <p className="text-sm text-success-600 font-medium">
               Tienes {cantidadTotal} mensajes programados
             </p>
@@ -244,7 +283,7 @@ export default function PaymentSummary() {
         )}
 
         {mensajeActual && (
-          <div className="bg-surface-secondary border border-border rounded-xl p-5 space-y-3">
+          <div className="bg-white border border-[#E8E8E8] rounded-[24px] p-5 shadow-xs space-y-3">
             <h2 className="font-semibold text-text-primary">Mensaje actual</h2>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
@@ -259,16 +298,20 @@ export default function PaymentSummary() {
                 <span className="text-text-secondary">Fecha de envío:</span>
                 <span className="font-medium text-text-primary">{formatearFecha(mensajeActual.fecha_envio)}</span>
               </div>
+              <div className="flex justify-between pt-2 border-t border-[#E8E8E8]">
+                <span className="text-text-secondary">Mensaje:</span>
+                <span className="font-medium text-text-primary line-clamp-2 text-right max-w-[280px]">{mensajeActual.texto_final}</span>
+              </div>
             </div>
           </div>
         )}
 
         {mensajesPendientes.length > 0 && (
-          <div className="bg-surface-secondary border border-border rounded-xl p-5">
+          <div className="bg-white border border-[#E8E8E8] rounded-[24px] p-5 shadow-xs">
             <h2 className="font-semibold text-text-primary mb-3">Mensajes guardados ({mensajesPendientes.length})</h2>
             <div className="space-y-3 max-h-48 overflow-y-auto">
               {mensajesPendientes.map((msg, i) => (
-                <div key={i} className="flex justify-between text-sm border-b border-border pb-2 last:border-0">
+                <div key={i} className="flex justify-between text-sm border-b border-[#E8E8E8] pb-2 last:border-0">
                   <span className="text-text-secondary">Para {msg.nombre_destinatario}</span>
                   <span className="text-text-tertiary text-xs">{formatearFecha(msg.fecha_envio)}</span>
                 </div>
@@ -277,7 +320,7 @@ export default function PaymentSummary() {
           </div>
         )}
 
-        <div className="bg-surface-secondary border border-border rounded-xl p-5 space-y-2">
+        <div className="bg-white border border-[#E8E8E8] rounded-[24px] p-5 space-y-2 shadow-xs">
           <h2 className="font-semibold text-text-primary mb-3">Desglose de precio</h2>
           <div className="flex justify-between text-sm">
             <span className="text-text-secondary">Cantidad de mensajes:</span>
@@ -298,7 +341,7 @@ export default function PaymentSummary() {
         </div>
 
         {!formularioEnviado && (
-          <div className="bg-surface border border-border rounded-xl p-5">
+          <div className="bg-white border border-[#E8E8E8] rounded-[24px] p-5 shadow-xs">
             <h2 className="font-semibold text-text-primary mb-4">Datos de contacto</h2>
             <FormularioContacto
               datosIniciales={datosContacto ?? undefined}

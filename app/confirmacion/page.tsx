@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
+import HeaderBrand from '@/components/header-brand';
 
 const STORAGE_KEY = 'mensajes_programados_pendientes';
 const STORAGE_CONTACTO = 'datos_contacto';
@@ -40,7 +41,6 @@ function ContenidoConfirmacion() {
 
       const mensajesRaw = localStorage.getItem(STORAGE_KEY);
       const contactosRaw = localStorage.getItem(STORAGE_CONTACTO);
-
       let mensajes: MensajeCompleto[] = [];
       let contactos: { email_contacto: string; nombre_contacto: string; telefono_contacto: string } | null = null;
 
@@ -55,17 +55,18 @@ function ContenidoConfirmacion() {
       const cantidadSession = cantidadStr ? parseInt(cantidadStr, 10) : mensajes.length;
 
       setCantidadMensajes(cantidadSession || mensajes.length);
-      setNombresDestinatarios(mensajes.map(m => m.nombre_destinatario));
-      setFechasEnvio(mensajes.map(m => {
-        const [y, mo, d] = m.fecha_envio.split('-');
-        return new Date(parseInt(y), parseInt(mo) - 1, parseInt(d)).toLocaleDateString('es-CO', {
-          day: 'numeric', month: 'long', year: 'numeric',
-        });
-      }));
+      setNombresDestinatarios(mensajes.map((m) => m.nombre_destinatario));
+      setFechasEnvio(
+        mensajes.map((m) => {
+          const [y, mo, d] = m.fecha_envio.split('-');
+          const fecha = new Date(parseInt(y), parseInt(mo) - 1, parseInt(d));
+          return fecha.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+        })
+      );
 
       if (mensajes.length > 0) {
         try {
-          const mensajesConContacto = mensajes.map(m => ({
+          const mensajesConContacto = mensajes.map((m) => ({
             ...m,
             email_contacto: contactos?.email_contacto ?? m.email_contacto ?? '',
             nombre_contacto: contactos?.nombre_contacto ?? m.nombre_contacto ?? '',
@@ -87,6 +88,7 @@ function ContenidoConfirmacion() {
       sessionStorage.removeItem('datos_envio');
       sessionStorage.removeItem('referencia_pago');
       sessionStorage.removeItem('cantidad_mensajes');
+      sessionStorage.removeItem('bold_config');
 
       setGuardando(false);
     };
@@ -96,155 +98,138 @@ function ContenidoConfirmacion() {
 
   if (guardando) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-4 py-16 bg-gradient-to-b from-primary-50 to-white">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 mx-auto border-4 border-primary-400 border-t-transparent rounded-full animate-spin" />
-          <p className="text-lg text-text-secondary">Procesando tu pago...</p>
+      <main className="flex min-h-screen w-full items-center justify-center bg-neutral-100 px-6">
+        <div className="text-center">
+          <div className="mx-auto h-14 w-14 border-4 border-primary-450 border-t-transparent rounded-full animate-spin" />
+          <p className="mt-4 text-text-secondary">Procesando tu pago…</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-4 py-16 bg-gradient-to-b from-success-50 to-white">
-      <div className="max-w-lg w-full text-center space-y-8">
+    <main className="w-full min-h-screen bg-neutral-100 text-text-primary font-poppins">
+      <div className="mx-auto flex w-full max-w-[1280px] flex-col items-center px-6 pt-14 pb-16">
+        <HeaderBrand />
+
         {aprobado ? (
           <>
-            <div className="flex justify-center animate-bounce">
-              <div className="w-32 h-32 rounded-full bg-success-400 flex items-center justify-center shadow-2xl">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-            </div>
+            {/* Estado de éxito */}
+            <section className="mx-auto mt-8 flex h-32 w-32 items-center justify-center rounded-full bg-success-400 text-white shadow-2xl">
+              <svg className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </section>
 
-            <div className="space-y-3">
-              <h1 className="text-4xl font-bold text-success-600">
-                Pago exitoso!
-              </h1>
-              <p className="text-xl text-text-secondary">
-                Tus mensajes han sido programados correctamente
-              </p>
-            </div>
+            <h1 className="mt-6 text-center text-4xl font-bold text-success-600">
+              ¡Pago exitoso!
+            </h1>
+            <p className="mt-2 text-center text-lg text-text-secondary">
+              Tus mensajes han sido programados correctamente.
+            </p>
 
             {cantidadMensajes > 0 && (
-              <div className="bg-white rounded-2xl shadow-lg p-6 space-y-4">
-                <div className="flex items-center justify-center gap-2 text-6xl">
-                  💌
-                </div>
-                <p className="text-2xl font-bold text-primary-500">
+              <section className="mt-8 w-full max-w-md rounded-[24px] border border-[#E8E8E8] bg-white p-6 shadow-xs">
+                <div className="flex items-center justify-center gap-2 text-5xl">💌</div>
+                <p className="mt-3 text-center text-2xl font-bold text-primary-450">
                   {cantidadMensajes} mensaje{cantidadMensajes !== 1 ? 's' : ''} programado{cantidadMensajes !== 1 ? 's' : ''}
                 </p>
 
                 {nombresDestinatarios.length > 0 && (
-                  <div className="space-y-2 pt-2 border-t border-border">
+                  <div className="mt-4 space-y-2 pt-4 border-t border-[#E8E8E8]">
                     <p className="text-sm font-medium text-text-secondary">Destinatarios:</p>
                     {nombresDestinatarios.slice(0, 5).map((nombre, i) => (
-                      <div key={i} className="flex items-center justify-center gap-2 text-text-primary">
-                        <span className="w-2 h-2 rounded-full bg-success-400" />
+                      <div key={i} className="flex items-center gap-2 text-text-primary">
+                        <span className="h-2 w-2 rounded-full bg-success-400" />
                         <span>{nombre}</span>
                       </div>
                     ))}
                     {nombresDestinatarios.length > 5 && (
-                      <p className="text-sm text-text-tertiary">+{nombresDestinatarios.length - 5} mas</p>
+                      <p className="text-sm text-text-tertiary">+{nombresDestinatarios.length - 5} más</p>
                     )}
                   </div>
                 )}
 
                 {fechasEnvio.length > 0 && (
-                  <div className="space-y-1 pt-2 border-t border-border">
-                    <p className="text-sm font-medium text-text-secondary">Fechas de envio:</p>
+                  <div className="mt-3 space-y-1 pt-3 border-t border-[#E8E8E8]">
+                    <p className="text-sm font-medium text-text-secondary">Fechas de envío:</p>
                     {fechasEnvio.slice(0, 3).map((fecha, i) => (
                       <p key={i} className="text-sm text-text-tertiary">{fecha}</p>
                     ))}
                     {fechasEnvio.length > 3 && (
-                      <p className="text-sm text-text-tertiary">+{fechasEnvio.length - 3} mas</p>
+                      <p className="text-sm text-text-tertiary">+{fechasEnvio.length - 3} más</p>
                     )}
                   </div>
                 )}
-              </div>
+              </section>
             )}
 
-            <div className="bg-white/80 backdrop-blur rounded-xl p-4 space-y-2">
-              <p className="text-text-secondary">
-                📱 Recibiras un recordatorio <strong>un dia antes</strong> de cada envio.
-              </p>
-              <p className="text-text-secondary">
-                💡 Los mensajes se enviaran automaticamente en la fecha programada.
-              </p>
+            <div className="mt-8 flex flex-col gap-3 text-center text-sm text-text-tertiary">
+              <p>📱 Recibirás un recordatorio un día antes de cada envío.</p>
+              <p>💡 Los mensajes se enviarán automáticamente en la fecha programada.</p>
             </div>
 
-            <p className="text-lg font-medium text-success-600 pt-4">
-              Gracias por confiar en nosotros!
+            <p className="mt-6 text-center text-lg font-medium text-success-600">
+              ¡Gracias por confiar en ConSentido!
             </p>
 
-            <Link href="/" className="block pt-4">
-              <Button variante="primary" className="w-full text-lg py-4">
-                Crear nuevos mensajes
-              </Button>
-            </Link>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <Link href="/" className="flex-1">
+                <Button variante="primary" className="w-full">
+                  Volver al inicio
+                </Button>
+              </Link>
+              <Link href="/categorias" className="flex-1">
+                <Button variante="secondary" className="w-full">
+                  Crear otro mensaje
+                </Button>
+              </Link>
+            </div>
           </>
         ) : rechazado ? (
           <>
-            <div className="flex justify-center">
-              <div className="w-32 h-32 rounded-full bg-red-500 flex items-center justify-center shadow-2xl">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <h1 className="text-3xl font-bold text-red-600">
-                Pago no completado
-              </h1>
-              <p className="text-lg text-text-secondary">
-                Tu pago fue rechazado. Puedes intentar de nuevo cuando quieras.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-3 pt-4">
-              <Link href="/pago">
-                <Button variante="primary" className="w-full text-lg py-4">
+            <section className="mt-8 mx-auto flex h-32 w-32 items-center justify-center rounded-full bg-red-500 text-white shadow-2xl">
+              <svg className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </section>
+            <h1 className="mt-6 text-center text-3xl font-bold text-red-600">Pago no completado</h1>
+            <p className="mt-2 text-center text-lg text-text-secondary">
+              Tu pago fue rechazado. Puedes intentar de nuevo cuando quieras.
+            </p>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <Link href="/pago" className="flex-1">
+                <Button variante="primary" className="w-full">
                   Reintentar pago
                 </Button>
               </Link>
-              <Link href="/">
+              <Link href="/" className="flex-1">
                 <Button variante="secondary" className="w-full">
                   Volver al inicio
                 </Button>
               </Link>
             </div>
-
-            <p className="text-sm text-text-tertiary pt-4">
-              Tus mensajes guardados se mantendran disponibles.
+            <p className="mt-4 text-center text-sm text-text-tertiary">
+              Tus mensajes guardados se mantendrán disponibles.
             </p>
           </>
         ) : (
           <>
-            <div className="flex justify-center">
-              <div className="w-32 h-32 rounded-full bg-yellow-400 flex items-center justify-center shadow-2xl">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <h1 className="text-3xl font-bold text-yellow-600">
-                Procesando pago
-              </h1>
-              <p className="text-lg text-text-secondary">
-                Tu pago esta siendo verificado. Esto puede tomar unos momentos.
-              </p>
-            </div>
-
-            <p className="text-sm text-text-tertiary">
-              No cierres esta pagina. Recibiras una notificacion cuando se confirme.
+            <section className="mt-8 mx-auto flex h-32 w-32 items-center justify-center rounded-full bg-yellow-400 text-white shadow-2xl">
+              <svg className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3" />
+              </svg>
+            </section>
+            <h1 className="mt-6 text-center text-3xl font-bold text-yellow-600">Procesando pago</h1>
+            <p className="mt-2 text-center text-lg text-text-secondary">
+              Tu pago está siendo verificado. Esto puede tomar unos momentos.
             </p>
-
-            <Link href="/">
-              <Button variante="secondary" className="w-full mt-6">
+            <p className="mt-2 text-center text-sm text-text-tertiary">
+              No cierres esta página. Recibirás una notificación cuando se confirme.
+            </p>
+            <Link href="/" className="mt-6">
+              <Button variante="secondary" className="w-full max-w-xs">
                 Volver al inicio
               </Button>
             </Link>
@@ -257,14 +242,16 @@ function ContenidoConfirmacion() {
 
 export default function PaginaConfirmacion() {
   return (
-    <Suspense fallback={
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 mx-auto border-4 border-primary-400 border-t-transparent rounded-full animate-spin" />
-          <p className="mt-4 text-text-secondary">Cargando...</p>
-        </div>
-      </main>
-    }>
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen w-full items-center justify-center bg-neutral-100">
+          <div className="text-center">
+            <div className="mx-auto h-12 w-12 border-4 border-primary-450 border-t-transparent rounded-full animate-spin" />
+            <p className="mt-4 text-text-secondary">Cargando…</p>
+          </div>
+        </main>
+      }
+    >
       <ContenidoConfirmacion />
     </Suspense>
   );

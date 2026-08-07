@@ -1,0 +1,9 @@
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+.screen-wrap{background:#E5E9F0;display:flex;align-items:flex-start;justify-content:center;padding:40px 0;min-height:100vh}
+.h-primary{transition:all .15s ease}.h-primary:hover{background:#1B5CD8!important}.h-primary:active{background:#104EC2!important}
+.h-secondary{transition:all .15s ease}.h-secondary:hover{background:#E5F1FD!important;border-color:#6C9BF3!important}.h-secondary:active{background:#D4E6FC!important}
+.h-terciary{transition:all .15s ease}.h-terciary:hover{background:#E5F1FD!important}.h-terciary:active{background:#D4E6FC!important}
+.h-bullet{transition:all .15s ease;cursor:pointer}.h-bullet:hover{background:#2269ED!important}.h-bullet:hover span{color:#FFFFFF!important}
+.h-cardcat{transition:all .15s ease;cursor:pointer}.h-cardcat:hover{border-color:#6C9BF3!important;box-shadow:0 8px 24px rgba(108,155,243,.18)}.h-cardcat:hover .iconbox{background:#2269ED!important}.h-cardcat:hover .iconbox svg path{stroke:#FFFFFF!important}
+.h-cardphrase{transition:all .15s ease;cursor:pointer}.h-cardphrase:hover{border-color:#6C9BF3!important;box-shadow:0 8px 24px rgba(108,155,243,.18)}
+.h-input .field{transition:all .15s ease}.h-input .field:focus-within{border-color:#2269ED!important}

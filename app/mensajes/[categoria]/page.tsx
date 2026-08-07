@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import ListaMensajes from '@/components/ListaMensajes';
+import HeaderBrand from '@/components/header-brand';
+import PasoIndicator from '@/components/paso-indicator';
 import { Categoria, MensajePrediseniado } from '@/types';
 
 interface Props {
@@ -39,7 +41,11 @@ async function obtenerMensajes(
     if (error) return { data: null, error: error.message };
     if (!data || data.length === 0) return { data: [], error: null };
     return { data: [...data].sort(() => Math.random() - 0.5).slice(0, 5), error: null };
-  } catch {
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes('fetch failed') || msg.includes('ENOTFOUND') || msg.includes('ECONNREFUSED')) {
+      return { data: null, error: 'El servicio de base de datos no está disponible. Verifica que el proyecto de Supabase esté activo.' };
+    }
     return { data: null, error: 'No se pudo conectar con la base de datos.' };
   }
 }
@@ -68,46 +74,43 @@ export default async function PaginaMensajes({ params }: Props) {
   if (!cat) notFound();
 
   return (
-    <main className="min-h-screen px-4 py-12 max-w-2xl mx-auto">
-      <nav aria-label="Migas de pan" className="mb-8">
-        <ol className="flex items-center gap-2 text-sm text-[#666666]">
-          <li>
-            <Link href="/categorias" className="hover:text-[#4A90D9] transition-colors">
-              Categorías
+    <main className="w-full min-h-screen bg-neutral-100 text-text-primary font-poppins">
+      <div className="mx-auto flex w-full max-w-[1280px] flex-col px-6 pt-10 pb-16">
+        <HeaderBrand />
+        <PasoIndicator texto="Paso 2 / 4" href="/categorias" />
+
+        <section className="mb-2 mt-6">
+          <h1 className="text-3xl font-bold text-text-primary sm:text-4xl">
+            {cat.icono} Mensajes para {cat.nombre}
+          </h1>
+          <p className="mt-2 text-base text-text-secondary">
+            Elige el que más resuene contigo. Si ninguno te convence, genera cinco nuevos.
+          </p>
+        </section>
+
+        {error ? (
+          <div className="rounded-[24px] border border-red-200 bg-red-50 p-6 text-center">
+            <p className="text-red-700 font-medium">No se pudieron cargar los mensajes</p>
+            <p className="text-red-500 text-sm mt-1">{error}</p>
+            <Link href="/categorias" className="text-primary-450 hover:underline text-sm block mt-2">
+              Volver a categorías
             </Link>
-          </li>
-          <li aria-hidden="true">/</li>
-          <li className="text-[#333333] font-medium" aria-current="page">
-            {cat.icono} {cat.nombre}
-          </li>
-        </ol>
-      </nav>
+          </div>
+        ) : mensajes && mensajes.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-text-secondary">No hay mensajes disponibles en esta categoría.</p>
+            <Link href="/categorias" className="text-primary-450 hover:underline text-sm">
+              Volver a categorías
+            </Link>
+          </div>
+        ) : (
+          <ListaMensajes mensajesIniciales={mensajes!} categoriaId={categoria} categoria={cat} />
+        )}
 
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold text-[#333333] mb-2">
-          {cat.icono} {cat.nombre}
-        </h1>
-        <p className="text-[#666666]">Selecciona el mensaje que más te guste</p>
+        <footer className="mt-12 text-center text-sm text-text-tertiary">
+          <p>© 2026 ConSentido - Palabras con intención</p>
+        </footer>
       </div>
-
-      {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center space-y-2">
-          <p className="text-red-700 font-medium">No se pudieron cargar los mensajes</p>
-          <p className="text-red-500 text-sm">{error}</p>
-          <Link href="/categorias" className="text-[#4A90D9] hover:underline text-sm block mt-2">
-            Volver a categorías
-          </Link>
-        </div>
-      ) : mensajes && mensajes.length === 0 ? (
-        <div className="text-center space-y-3">
-          <p className="text-[#666666]">No hay mensajes disponibles en esta categoría.</p>
-          <Link href="/categorias" className="text-[#4A90D9] hover:underline text-sm">
-            Volver a categorías
-          </Link>
-        </div>
-      ) : (
-        <ListaMensajes mensajesIniciales={mensajes!} categoriaId={categoria} />
-      )}
     </main>
   );
 }

@@ -22,16 +22,9 @@ function tieneDatosRequeridos(numeroPaso: number): boolean {
 
   try {
     const parsed = JSON.parse(datos);
-    
-    if (numeroPaso === 1) {
-      return true;
-    }
-    if (numeroPaso === 2) {
-      return !!parsed.texto_final;
-    }
-    if (numeroPaso === 3) {
-      return !!parsed.fecha_envio;
-    }
+    if (numeroPaso === 1) return true;
+    if (numeroPaso === 2) return !!parsed.texto_final;
+    if (numeroPaso === 3) return !!parsed.fecha_envio;
     return false;
   } catch {
     return false;
@@ -41,8 +34,7 @@ function tieneDatosRequeridos(numeroPaso: number): boolean {
 export default function Stepper() {
   const pathname = usePathname();
   const { showToast } = useToast();
-
-  const pasoActual = pasos.findIndex(p => pathname?.startsWith(p.path)) + 1 || 0;
+  const pasoActual = pasos.findIndex((p) => pathname?.startsWith(p.path)) + 1 || 0;
 
   const puedeIrAPaso = (numeroPaso: number): boolean => {
     if (numeroPaso <= pasoActual) return true;
@@ -52,78 +44,58 @@ export default function Stepper() {
   const handleClick = (e: React.MouseEvent, paso: Step) => {
     if (!puedeIrAPaso(paso.numero)) {
       e.preventDefault();
-      if (paso.numero === 2) {
-        showToast('Primero personaliza tu mensaje', 'warning');
-      } else if (paso.numero === 3) {
-        showToast('Primero completa los datos de envío', 'warning');
-      }
+      if (paso.numero === 2) showToast('Primero personaliza tu mensaje', 'warning');
+      else if (paso.numero === 3) showToast('Primero completa los datos de envío', 'warning');
     }
   };
 
   return (
     <nav aria-label="Progreso de compra" className="w-full">
-      <ol className="flex items-center justify-center">
+      <ul className="flex items-center justify-center gap-4">
         {pasos.map((paso, index) => {
           const isActive = paso.numero === pasoActual;
           const isCompleted = paso.numero < pasoActual;
 
           return (
-            <li key={paso.path} className="flex items-center">
-              <div className="flex flex-col items-center gap-1.5">
-                {isCompleted ? (
-                  <Link
-                    href={paso.path}
-                    onClick={(e) => handleClick(e, paso)}
-                    className="flex items-center justify-center w-10 h-10 rounded-full 
-                      bg-success-400 text-white 
-                      transition-all duration-200
-                      hover:bg-success-600 hover:scale-110
-                      active:scale-95
-                      shadow-sm hover:shadow-md"
-                    aria-label={`${paso.label} - Completado`}
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </Link>
-                ) : isActive ? (
-                  <span
-                    className="flex items-center justify-center w-10 h-10 rounded-full 
-                      bg-primary-400 text-white font-bold 
-                      ring-4 ring-primary-100
-                      shadow-md"
-                    aria-current="step"
-                  >
-                    {paso.numero}
-                  </span>
-                ) : (
-                  <span
-                    className="flex items-center justify-center w-10 h-10 rounded-full 
-                      bg-surface-tertiary text-text-tertiary font-semibold
-                      border-2 border-dashed border-text-disabled"
-                  >
-                    {paso.numero}
-                  </span>
-                )}
-
-                <span
-                  className={`text-xs font-medium whitespace-nowrap transition-colors ${
-                    isActive
-                      ? 'text-primary-500 font-bold'
-                      : isCompleted
-                      ? 'text-success-600'
-                      : 'text-text-tertiary'
-                  }`}
+            <li key={paso.path} className="flex items-center gap-2">
+              {isCompleted ? (
+                <Link
+                  href={paso.path}
+                  onClick={(e) => handleClick(e, paso)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-success-400 text-white
+                    hover:bg-success-600 hover:scale-110 active:scale-95 shadow transition-all"
+                  aria-label={`${paso.label} - Completado`}
                 >
-                  {paso.label}
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </Link>
+              ) : isActive ? (
+                <span
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-450 text-white font-bold ring-4 ring-primary-200 shadow transition-all"
+                  aria-current="step"
+                >
+                  {paso.numero}
                 </span>
-              </div>
-
+              ) : (
+                <span
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-text-tertiary font-semibold border border-[#E8E8E8]"
+                >
+                  {paso.numero}
+                </span>
+              )}
+              <span
+                className={`text-sm font-medium whitespace-nowrap transition-colors ${
+                  isActive ? 'text-primary-500' : isCompleted ? 'text-success-600' : 'text-text-tertiary'
+                }`}
+              >
+                {paso.label}
+              </span>
               {index < pasos.length - 1 && (
-                <div className="w-8 sm:w-12 mx-1 sm:mx-2">
+                <div className="w-6">
                   <div
-                    className={`h-1 rounded-full transition-all duration-500 ${
-                      isCompleted ? 'bg-success-400' : 'bg-surface-tertiary'
+                    className={`h-1 rounded-full transition-all ${
+                      isCompleted ? 'bg-success-400' : 'bg-[#E8E8E8]'
                     }`}
                   />
                 </div>
@@ -131,7 +103,7 @@ export default function Stepper() {
             </li>
           );
         })}
-      </ol>
+      </ul>
     </nav>
   );
 }

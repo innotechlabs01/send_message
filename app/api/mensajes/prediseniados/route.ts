@@ -25,14 +25,33 @@ export async function GET(request: NextRequest) {
     ? excluirParam.split(',').filter((id) => id.trim().length > 0)
     : [];
 
-  const supabase = getSupabaseAdmin();
+  let supabase;
+  try {
+    supabase = getSupabaseAdmin();
+  } catch {
+    return NextResponse.json(
+      { error: { code: 'CONFIG_ERROR', message: 'Error de configuración del servicio.' } },
+      { status: 500 }
+    );
+  }
 
-  // Primero obtener el categoria_id basado en el nombre (case-insensitive)
-  // Usar LOWER para comparación case-insensitive
-  const { data: categoriaData, error: categoriaError } = await supabase
-    .from('categorias')
-    .select('id, nombre')
-    .eq('activa', true);
+  let categoriaData;
+  let categoriaError;
+  try {
+    const result = await supabase
+      .from('categorias')
+      .select('id, nombre')
+      .eq('activa', true);
+    categoriaData = result.data;
+    categoriaError = result.error;
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('Fetch failed connecting to Supabase:', msg);
+    return NextResponse.json(
+      { error: { code: 'DB_UNAVAILABLE', message: 'El servicio de base de datos no está disponible. Verifica que el proyecto de Supabase esté activo.' } },
+      { status: 503 }
+    );
+  }
 
   if (categoriaError) {
     console.error('Error fetching categorias:', categoriaError);
@@ -76,7 +95,20 @@ export async function GET(request: NextRequest) {
     query = query.not('id', 'in', `(${excluir.join(',')})`);
   }
 
-  const { data, error } = await query.limit(5);
+  let data;
+  let error;
+  try {
+    const result = await query.limit(5);
+    data = result.data;
+    error = result.error;
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('Fetch failed connecting to Supabase:', msg);
+    return NextResponse.json(
+      { error: { code: 'DB_UNAVAILABLE', message: 'El servicio de base de datos no está disponible.' } },
+      { status: 503 }
+    );
+  }
 
   if (error) {
     return NextResponse.json(

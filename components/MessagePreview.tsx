@@ -51,29 +51,29 @@ export default function MessagePreview({ abierto, datos, onCerrar, onAceptar }: 
       <div className="space-y-5">
         {/* Mensaje con tres secciones */}
         <div
-          className="bg-[#ECECEC] border border-[#CCCCCC] rounded-xl shadow-sm p-5 space-y-3"
+          className="bg-surface-tertiary border border-[#E8E8E8] rounded-[24px] shadow-sm p-5 space-y-3"
           aria-label="Vista previa del mensaje"
         >
           {/* Encabezado */}
-          <p className="font-semibold text-[#333333] text-sm">{encabezado}</p>
+          <p className="font-semibold text-text-primary text-sm">{encabezado}</p>
 
           {/* Cuerpo */}
           {cuerpo && (
-            <p className="text-[#333333] text-sm leading-relaxed whitespace-pre-line border-t border-[#CCCCCC] pt-3">
+            <p className="text-text-primary text-sm leading-relaxed whitespace-pre-line border-t border-[#E8E8E8] pt-3">
               {cuerpo}
             </p>
           )}
 
           {/* Pie */}
-          <p className="text-[#666666] text-xs italic border-t border-[#CCCCCC] pt-3">{pie}</p>
+          <p className="text-text-tertiary text-xs italic border-t border-[#E8E8E8] pt-3">{pie}</p>
         </div>
 
         {/* Datos de envío */}
-        <div className="bg-white border border-[#CCCCCC] rounded-lg p-4 space-y-2 text-sm">
+        <div className="bg-white border border-[#E8E8E8] rounded-[24px] p-4 space-y-2 text-sm">
           {datos.fechaEnvio && (
             <div className="flex justify-between">
-              <span className="text-[#666666]">Fecha de envío:</span>
-              <span className="font-medium text-[#333333]">
+              <span className="text-text-tertiary">Fecha de envío:</span>
+              <span className="font-medium text-text-primary">
                 {(() => {
                   const [year, month, day] = datos.fechaEnvio.split('-').map(Number);
                   const fecha = new Date(year, month - 1, day);
