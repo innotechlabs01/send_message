@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import * as LucideIcons from "lucide-react";
-import { Lock, CreditCard, Loader2, CheckCircle2, Building2, Smartphone } from "lucide-react";
+import { Lock, CreditCard, Loader2, CheckCircle2, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
