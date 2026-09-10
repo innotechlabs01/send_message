@@ -18,6 +18,7 @@ Deno.serve(async (req) => {
 
   try {
     const supabase = getSupabaseAdmin();
+    const { scheduled } = await req.json().catch(() => ({ scheduled: false }));
 
     // Mark messages as expired if payment not completed within 3 days
     const { data: expiredMessages, error: expireError } = await supabase
@@ -29,6 +30,12 @@ Deno.serve(async (req) => {
 
     if (expireError) {
       console.error("Error expiring messages:", expireError);
+      // Queue the failed job for retry
+      await supabase.rpc("queue_failed_job", {
+        p_job_name: "cleanup-expired",
+        p_payload: { scheduled, error: expireError.message },
+        p_error_message: expireError.message,
+      });
       throw expireError;
     }
 
@@ -42,6 +49,12 @@ Deno.serve(async (req) => {
 
     if (deleteError) {
       console.error("Error deleting expired messages:", deleteError);
+      // Queue the failed job for retry
+      await supabase.rpc("queue_failed_job", {
+        p_job_name: "cleanup-expired",
+        p_payload: { scheduled, error: deleteError.message },
+        p_error_message: deleteError.message,
+      });
       throw deleteError;
     }
 
