@@ -11,6 +11,13 @@ export interface BoldPaymentIntent {
   amount: number;
   description?: string;
   callbackUrl: string;
+  categoryId: string;
+  messageText: string;
+  recipientName: string;
+  recipientPhone: string;
+  senderName: string;
+  senderPhone?: string;
+  sendDate: string;
   customer?: {
     name?: string;
     email?: string;
@@ -64,6 +71,19 @@ export async function processPayment(params: {
       action: "process-payment",
       ...params,
     },
+  });
+
+  if (error) throw error;
+  return result;
+}
+
+export async function confirmPayment(params: {
+  referenceId: string;
+  status: string;
+  transactionId?: string;
+}) {
+  const { data: result, error } = await supabase.functions.invoke("confirm-payment", {
+    body: params,
   });
 
   if (error) throw error;

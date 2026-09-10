@@ -70,12 +70,22 @@ function PaymentStep() {
       const referenceId = `MSG-${Date.now()}`;
       const callbackUrl = `${window.location.origin}/nuevo/confirmacion`;
 
-      // Create payment intent
+      // Get first item from cart for message details
+      const firstItem = state.items[0];
+
+      // Create payment intent with message data
       const intentResult = await createPaymentIntent({
         referenceId,
         amount: total,
         description: `ConSentido - ${state.items.length} mensaje(s)`,
         callbackUrl,
+        categoryId: firstItem.categoryId,
+        messageText: firstItem.message,
+        recipientName: firstItem.recipient,
+        recipientPhone: firstItem.phoneTo,
+        senderName: firstItem.sender || name,
+        senderPhone: firstItem.phoneFrom || phone,
+        sendDate: firstItem.sendDate,
         customer: { name, email, phone },
       });
 
