@@ -1,0 +1,1 @@
+-- No-op: schema ya aplicado en remoto (pazykgddlrbbplvwiizr)
