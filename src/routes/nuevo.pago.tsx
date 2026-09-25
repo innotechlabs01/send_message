@@ -1,14 +1,14 @@
 import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import * as LucideIcons from "lucide-react";
-import { Lock, CreditCard, Loader2, CheckCircle2, Building2 } from "lucide-react";
+import { Lock, CreditCard, Loader2, CheckCircle2, Building2, ArrowRight, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { wizard, useWizard, getCategory, PRICE_PER_MESSAGE } from "@/lib/wizard-store";
 import { StepHeader } from "@/components/StepHeader";
 import { StepShell } from "@/components/StepShell";
-import { createPaymentIntent, processPayment, getPseBanks, type BoldPaymentMethod, type BoldPayer } from "@/lib/bold";
+import { createPaymentIntent, getPseBanks, type BoldPaymentMethod, type BoldPayer } from "@/lib/bold";
 
 export const Route = createFileRoute("/nuevo/pago")({
   head: () => ({ meta: [{ title: "Pago — ConSentido" }] }),
@@ -22,8 +22,8 @@ function PaymentStep() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"card" | "pse">("card");
-  const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(false);
+  const [creatingIntent, setCreatingIntent] = useState(false);
+  const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [pseBanks, setPseBanks] = useState<Array<{ bank_code: string; bank_name: string }>>([]);
   const [selectedBank, setSelectedBank] = useState("");
 
@@ -46,25 +46,25 @@ function PaymentStep() {
 
   const total = state.items.length * PRICE_PER_MESSAGE;
 
-  async function pay() {
-    if (!email.includes("@") || !name.trim()) {
-      toast.error("Completa nombre y correo válido");
-      return;
-    }
+  // Validation helpers
+  const isPersonalInfoValid = email.includes("@") && name.trim().length > 0;
+  const isCardValid = cardNumber.trim().length >= 15 && cardName.trim().length > 0 && cardExpiry.trim().length === 5 && cardCvc.trim().length >= 3;
+  const isPseValid = selectedBank.length > 0;
+  const isFormValid = isPersonalInfoValid && (paymentMethod === "card" ? isCardValid : isPseValid);
 
-    if (paymentMethod === "card") {
-      if (!cardNumber.trim() || !cardName.trim() || !cardExpiry.trim() || !cardCvc.trim()) {
+  async function createIntent() {
+    if (!isFormValid) {
+      if (!email.includes("@") || !name.trim()) {
+        toast.error("Completa nombre y correo válido");
+      } else if (paymentMethod === "card" && !isCardValid) {
         toast.error("Completa los datos de la tarjeta");
-        return;
+      } else if (paymentMethod === "pse" && !isPseValid) {
+        toast.error("Selecciona un banco");
       }
-    }
-
-    if (paymentMethod === "pse" && !selectedBank) {
-      toast.error("Selecciona un banco");
       return;
     }
 
-    setSubmitting(true);
+    setCreatingIntent(true);
 
     try {
       const referenceId = `MSG-${Date.now()}`;
@@ -93,7 +93,14 @@ function PaymentStep() {
         throw new Error(intentResult.error);
       }
 
-      // Process payment
+      // Check if Bold provides a redirect URL (checkout page)
+      const nextActions = intentResult.payload?.next_actions;
+      if (nextActions?.redirect_url) {
+        setRedirectUrl(nextActions.redirect_url);
+        return;
+      }
+
+      // Fallback: if no redirect, try processPayment (legacy flow)
       const payer: BoldPayer = {
         personType: "NATURAL_PERSON",
         name,
@@ -124,6 +131,7 @@ function PaymentStep() {
         };
       }
 
+      const { processPayment } = await import("@/lib/bold");
       const paymentResult = await processPayment({
         referenceId,
         payer,
@@ -134,41 +142,62 @@ function PaymentStep() {
         throw new Error(paymentResult.error);
       }
 
-      // Check if redirect is needed (PSE, 3DS, etc.)
       if (paymentResult.payload?.next_actions?.redirect_url) {
-        window.location.href = paymentResult.payload.next_actions.redirect_url;
+        setRedirectUrl(paymentResult.payload.next_actions.redirect_url);
         return;
       }
 
-      // Payment completed
-      setDone(true);
+      // Payment completed without redirect
       toast.success("¡Pago procesado exitosamente!");
+      navigate({ to: "/nuevo/confirmacion", search: { payment_id: referenceId } });
     } catch (err) {
       console.error("Payment error:", err);
-      toast.error(err instanceof Error ? err.message : "Error procesando el pago");
+      toast.error(err instanceof Error ? err.message : "Error creando la orden de pago");
     } finally {
-      setSubmitting(false);
+      setCreatingIntent(false);
     }
   }
 
-  if (done) {
+  function goToBold() {
+    if (redirectUrl) {
+      window.location.href = redirectUrl;
+    }
+  }
+
+  // If we have a redirect URL, show confirmation screen
+  if (redirectUrl) {
     return (
       <StepShell>
         <div className="glass rounded-3xl p-10 text-center animate-rise max-w-2xl mx-auto">
-          <CheckCircle2 className="w-14 h-14 text-primary mx-auto mb-5 animate-float" />
-          <h2 className="text-3xl font-semibold tracking-tight">¡Casi listo!</h2>
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5 animate-pulse">
+            <Shield className="w-8 h-8 text-primary" />
+          </div>
+          <h2 className="text-3xl font-semibold tracking-tight">¡Orden creada!</h2>
           <p className="mt-3 text-muted-foreground">
-            Aquí te redirigiríamos a la plataforma de pagos para finalizar el envío de{" "}
-            <span className="text-foreground font-medium">{state.items.length} mensaje{state.items.length > 1 ? "s" : ""}</span>.
+            Te llevaremos a la pasarela segura de <span className="text-foreground font-medium">Bold</span> para completar el pago.
           </p>
+          <div className="mt-6 p-4 glass rounded-2xl text-left space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Total a pagar</span>
+              <span className="font-semibold">${total.toLocaleString("es-CO")} COP</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Método</span>
+              <span className="font-medium capitalize">{paymentMethod === "card" ? "Tarjeta" : "PSE"}</span>
+            </div>
+          </div>
           <div className="mt-8 flex justify-center gap-3">
-            <button onClick={() => { wizard.reset(); navigate({ to: "/" }); }} className="btn-base btn-secondary">
-              Volver al inicio
+            <button onClick={() => setRedirectUrl(null)} className="btn-base btn-secondary">
+              <ArrowRight className="w-4 h-4 mr-2" /> Volver
             </button>
-            <button onClick={() => { wizard.reset(); navigate({ to: "/nuevo/categoria" }); }} className="btn-base btn-primary">
-              Crear otro mensaje
+            <button onClick={goToBold} className="btn-base btn-primary group">
+              Continuar a Bold
+              <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
             </button>
           </div>
+          <p className="text-xs text-muted-foreground mt-4">
+            Serás redirigido a Bold Colombia para completar tu pago de forma segura.
+          </p>
         </div>
       </StepShell>
     );
@@ -262,12 +291,17 @@ function PaymentStep() {
             </div>
           )}
 
-          <button onClick={pay} disabled={submitting} className="mt-4 w-full btn-base btn-primary">
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-            {submitting ? "Procesando..." : "Pagar ahora"}
+          <button onClick={createIntent} disabled={creatingIntent || !isFormValid} className="mt-4 w-full btn-base btn-primary">
+            {creatingIntent ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+            {creatingIntent ? "Creando orden..." : "Crear orden y continuar a Bold"}
           </button>
+          {!isFormValid && !creatingIntent && (
+            <p className="text-xs text-muted-foreground mt-3 text-center">
+              Completa todos los campos para habilitar el botón
+            </p>
+          )}
           <p className="text-xs text-muted-foreground mt-4 text-center">
-            Al continuar aceptas los términos. Podrás revisar tu pedido antes de pagar.
+            Al continuar serás redirigido a Bold Colombia para pagar de forma segura.
           </p>
         </section>
 

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as NuevoCarritoRouteImport } from './routes/nuevo.carrito'
 import { Route as NuevoCategoriaRouteImport } from './routes/nuevo.categoria'
+import { Route as NuevoConfirmacionRouteImport } from './routes/nuevo.confirmacion'
 import { Route as NuevoConfirmarRouteImport } from './routes/nuevo.confirmar'
 import { Route as NuevoMensajeRouteImport } from './routes/nuevo.mensaje'
 import { Route as NuevoPagoRouteImport } from './routes/nuevo.pago'
@@ -29,6 +30,11 @@ const NuevoCarritoRoute = NuevoCarritoRouteImport.update({
 const NuevoCategoriaRoute = NuevoCategoriaRouteImport.update({
   id: '/nuevo/categoria',
   path: '/nuevo/categoria',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NuevoConfirmacionRoute = NuevoConfirmacionRouteImport.update({
+  id: '/nuevo/confirmacion',
+  path: '/nuevo/confirmacion',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NuevoConfirmarRoute = NuevoConfirmarRouteImport.update({
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/nuevo/carrito': typeof NuevoCarritoRoute
   '/nuevo/categoria': typeof NuevoCategoriaRoute
+  '/nuevo/confirmacion': typeof NuevoConfirmacionRoute
   '/nuevo/confirmar': typeof NuevoConfirmarRoute
   '/nuevo/mensaje': typeof NuevoMensajeRoute
   '/nuevo/pago': typeof NuevoPagoRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/nuevo/carrito': typeof NuevoCarritoRoute
   '/nuevo/categoria': typeof NuevoCategoriaRoute
+  '/nuevo/confirmacion': typeof NuevoConfirmacionRoute
   '/nuevo/confirmar': typeof NuevoConfirmarRoute
   '/nuevo/mensaje': typeof NuevoMensajeRoute
   '/nuevo/pago': typeof NuevoPagoRoute
@@ -68,6 +76,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/nuevo/carrito': typeof NuevoCarritoRoute
   '/nuevo/categoria': typeof NuevoCategoriaRoute
+  '/nuevo/confirmacion': typeof NuevoConfirmacionRoute
   '/nuevo/confirmar': typeof NuevoConfirmarRoute
   '/nuevo/mensaje': typeof NuevoMensajeRoute
   '/nuevo/pago': typeof NuevoPagoRoute
@@ -78,6 +87,7 @@ export interface FileRouteTypes {
     | '/'
     | '/nuevo/carrito'
     | '/nuevo/categoria'
+    | '/nuevo/confirmacion'
     | '/nuevo/confirmar'
     | '/nuevo/mensaje'
     | '/nuevo/pago'
@@ -86,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/nuevo/carrito'
     | '/nuevo/categoria'
+    | '/nuevo/confirmacion'
     | '/nuevo/confirmar'
     | '/nuevo/mensaje'
     | '/nuevo/pago'
@@ -94,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/nuevo/carrito'
     | '/nuevo/categoria'
+    | '/nuevo/confirmacion'
     | '/nuevo/confirmar'
     | '/nuevo/mensaje'
     | '/nuevo/pago'
@@ -103,6 +115,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   NuevoCarritoRoute: typeof NuevoCarritoRoute
   NuevoCategoriaRoute: typeof NuevoCategoriaRoute
+  NuevoConfirmacionRoute: typeof NuevoConfirmacionRoute
   NuevoConfirmarRoute: typeof NuevoConfirmarRoute
   NuevoMensajeRoute: typeof NuevoMensajeRoute
   NuevoPagoRoute: typeof NuevoPagoRoute
@@ -129,6 +142,13 @@ declare module '@tanstack/react-router' {
       path: '/nuevo/categoria'
       fullPath: '/nuevo/categoria'
       preLoaderRoute: typeof NuevoCategoriaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/nuevo/confirmacion': {
+      id: '/nuevo/confirmacion'
+      path: '/nuevo/confirmacion'
+      fullPath: '/nuevo/confirmacion'
+      preLoaderRoute: typeof NuevoConfirmacionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/nuevo/confirmar': {
@@ -159,6 +179,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   NuevoCarritoRoute: NuevoCarritoRoute,
   NuevoCategoriaRoute: NuevoCategoriaRoute,
+  NuevoConfirmacionRoute: NuevoConfirmacionRoute,
   NuevoConfirmarRoute: NuevoConfirmarRoute,
   NuevoMensajeRoute: NuevoMensajeRoute,
   NuevoPagoRoute: NuevoPagoRoute,

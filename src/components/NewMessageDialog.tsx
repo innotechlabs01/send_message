@@ -70,7 +70,7 @@ export function NewMessageDialog({
     if (!open) return;
     if (editingItem) {
       setForm({ ...editingItem });
-      setStep(1);
+      setStep(3);
     } else {
       setForm(emptyForm);
       setStep(1);
