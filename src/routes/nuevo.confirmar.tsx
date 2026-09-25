@@ -44,8 +44,9 @@ function ConfirmStep() {
   const d = state.draft;
   const category = getCategory(d.categoryId);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [leaving, setLeaving] = useState(false);
 
-  if (!state.hydrated) return <StepShell withFooter />;
+  if (!state.hydrated || leaving) return <StepShell withFooter />;
   if (!category || !d.message) return <Navigate to="/nuevo/categoria" />;
 
   function field(name: keyof typeof d, value: string) {
@@ -71,15 +72,17 @@ function ConfirmStep() {
 
   function saveAndCheckout() {
     if (!validate()) return;
+    setLeaving(true);
     const added = wizard.addItemFromDraft();
-    if (!added) { toast.error("Datos incompletos"); return; }
-    navigate({ to: "/nuevo/carrito" });
+    if (!added) { setLeaving(false); toast.error("Datos incompletos"); return; }
+    navigate({ to: "/nuevo/carrito", search: {} });
   }
 
   function saveAndAddAnother() {
     if (!validate()) return;
+    setLeaving(true);
     const added = wizard.addItemFromDraft();
-    if (!added) { toast.error("Datos incompletos"); return; }
+    if (!added) { setLeaving(false); toast.error("Datos incompletos"); return; }
     toast.success("Mensaje guardado en el carrito");
     navigate({ to: "/nuevo/carrito", search: { nuevo: "1" } });
   }
