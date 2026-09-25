@@ -27,14 +27,25 @@ describe('getPaymentStatusCopy', () => {
       'FAILED',
       'ERROR',
       'CANCELLED',
-      'DECLINED',
       'EXPIRED',
       'VOIDED',
       'ABANDONED',
-      'REJECTED',
     ]
     for (const status of failureStates) {
       expect(getPaymentStatusCopy(status).state).toBe('failure')
+    }
+  })
+
+  it('returns gateway_blocked for gateway rejection states', () => {
+    const gatewayBlockedStates = [
+      'DECLINED',
+      'REJECTED',
+      'BLOCKED',
+    ]
+    for (const status of gatewayBlockedStates) {
+      const copy = getPaymentStatusCopy(status)
+      expect(copy.state).toBe('gateway_blocked')
+      expect(copy.gatewayReason).toBeUndefined()
     }
   })
 
