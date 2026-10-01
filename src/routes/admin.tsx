@@ -1,9 +1,9 @@
 import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Trash2, Edit2, Loader2, Save, X, ChevronLeft, Menu, LogOut, User, Settings } from "lucide-react";
+import { Plus, Trash2, Edit2, Loader2, Save, X, ChevronLeft, Menu, LogOut, User, Settings, Key } from "lucide-react";
 import { toast } from "sonner";
 import { adminSupabase } from "@/lib/admin-auth";
-import { verifyAdminSession, adminLogout, getAdminSession } from "@/lib/admin-auth";
+import { verifyAdminSession, adminLogout, getAdminSession, changePassword } from "@/lib/admin-auth";
 import { StepShell } from "@/components/StepShell";
 
 export const Route = createFileRoute("/admin")({
@@ -33,6 +33,11 @@ function AdminLayout() {
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [modalText, setModalText] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [cpCurrent, setCpCurrent] = useState("");
+  const [cpNew, setCpNew] = useState("");
+  const [cpConfirm, setCpConfirm] = useState("");
+  const [cpLoading, setCpLoading] = useState(false);
 
   // Verificar sesión al montar
   useEffect(() => {
@@ -137,6 +142,49 @@ function AdminLayout() {
     navigate({ to: "/admin/login" });
   }
 
+  function openChangePasswordModal() {
+    setCpCurrent("");
+    setCpNew("");
+    setCpConfirm("");
+    setShowChangePasswordModal(true);
+  }
+
+  async function handleChangePassword() {
+    if (!cpCurrent || !cpNew || !cpConfirm) {
+      toast.error("Completa todos los campos");
+      return;
+    }
+    if (cpNew !== cpConfirm) {
+      toast.error("Las contraseñas nuevas no coinciden");
+      return;
+    }
+    if (cpNew.length < 6) {
+      toast.error("La nueva contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+    if (cpNew === cpCurrent) {
+      toast.error("La nueva contraseña debe ser diferente a la actual");
+      return;
+    }
+    setCpLoading(true);
+    try {
+      const { user, error } = await changePassword(cpCurrent, cpNew);
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      if (user) {
+        toast.success("Contraseña actualizada correctamente");
+        setShowChangePasswordModal(false);
+      }
+    } catch (e) {
+      toast.error("Error cambiando contraseña");
+      console.error(e);
+    } finally {
+      setCpLoading(false);
+    }
+  }
+
   if (loading) {
     return (
       <StepShell>
@@ -167,6 +215,9 @@ function AdminLayout() {
               </span>
             </div>
             <div className="flex items-center gap-2">
+              <button onClick={openChangePasswordModal} className="btn-base btn-secondary px-3 py-2">
+                <Key className="w-4 h-4 mr-2" /> Contraseña
+              </button>
               <button onClick={handleLogout} className="btn-base btn-secondary px-3 py-2">
                 <LogOut className="w-4 h-4 mr-2" /> Salir
               </button>
@@ -297,6 +348,63 @@ function AdminLayout() {
                 <button onClick={saveMessage} disabled={saving || !modalText.trim()} className="btn-base btn-primary">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                   {editingMessage ? "Guardar cambios" : "Agregar mensaje"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {showChangePasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="glass rounded-3xl p-6 w-full max-w-md animate-rise">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">Cambiar contraseña</h2>
+              <button onClick={() => setShowChangePasswordModal(false)} className="btn-base btn-secondary p-2">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <label className="block">
+                <span className="text-xs uppercase tracking-widest text-muted-foreground">Contraseña actual</span>
+                <input
+                  type="password"
+                  value={cpCurrent}
+                  onChange={(e) => setCpCurrent(e.target.value)}
+                  placeholder="••••••••"
+                  className="mt-2 w-full bg-input/60 border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary transition-colors"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs uppercase tracking-widest text-muted-foreground">Nueva contraseña</span>
+                <input
+                  type="password"
+                  value={cpNew}
+                  onChange={(e) => setCpNew(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                  className="mt-2 w-full bg-input/60 border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary transition-colors"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs uppercase tracking-widest text-muted-foreground">Confirmar nueva contraseña</span>
+                <input
+                  type="password"
+                  value={cpConfirm}
+                  onChange={(e) => setCpConfirm(e.target.value)}
+                  placeholder="••••••••"
+                  className="mt-2 w-full bg-input/60 border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary transition-colors"
+                />
+              </label>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-border/40">
+                <button onClick={() => setShowChangePasswordModal(false)} className="btn-base btn-secondary">
+                  Cancelar
+                </button>
+                <button onClick={handleChangePassword} disabled={cpLoading} className="btn-base btn-primary">
+                  {cpLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                  Guardar cambios
                 </button>
               </div>
             </div>

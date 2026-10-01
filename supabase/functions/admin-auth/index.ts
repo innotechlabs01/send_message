@@ -162,6 +162,68 @@ Deno.serve(async (req) => {
         return json({ user: data }, 201);
       }
 
+      case "change-password": {
+        // Requiere cookie de sesión
+        const cookie = req.headers.get("Cookie") || "";
+        const match = cookie.match(new RegExp(`${ADMIN_SESSION_COOKIE}=([^;]+)`));
+        if (!match) return json({ error: "No autenticado" }, 401);
+
+        let userId: string;
+        try {
+          const user = JSON.parse(atob(match[1]));
+          userId = user.id;
+        } catch {
+          return json({ error: "Sesión inválida" }, 401);
+        }
+
+        const { currentPassword, newPassword } = await req.json();
+        if (!currentPassword || !newPassword) {
+          return json({ error: "Contraseña actual y nueva son requeridas" }, 400);
+        }
+        if (newPassword.length < 6) {
+          return json({ error: "La nueva contraseña debe tener al menos 6 caracteres" }, 400);
+        }
+
+        // Obtener hash actual
+        const { data: admin, error } = await adminSupabase
+          .from("admin_users")
+          .select("id, password_hash")
+          .eq("id", userId)
+          .single();
+
+        if (error || !admin) {
+          return json({ error: "Usuario no encontrado" }, 404);
+        }
+
+        // Verificar contraseña actual
+        const valid = await verifyPassword(currentPassword, admin.password_hash);
+        if (!valid) {
+          return json({ error: "Contraseña actual incorrecta" }, 401);
+        }
+
+        // Hashear nueva contraseña
+        const newHash = await hashPassword(newPassword);
+        const { error: updError } = await adminSupabase
+          .from("admin_users")
+          .update({ password_hash: newHash })
+          .eq("id", userId);
+
+        if (updError) {
+          console.error("Error actualizando password:", updError);
+          return json({ error: "Error actualizando contraseña" }, 500);
+        }
+
+        // Devolver nueva cookie con misma info (opcional)
+        const { data: updatedAdmin } = await adminSupabase
+          .from("admin_users")
+          .select("id, email, name")
+          .eq("id", userId)
+          .single();
+
+        const user = { id: updatedAdmin!.id, email: updatedAdmin!.email, name: updatedAdmin!.name };
+        return json({ success: true, user }, 200, { "Set-Cookie": `${ADMIN_SESSION_COOKIE}=${btoa(JSON.stringify(user))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400` });
+      }
+
       default:
         return json({ error: "Acción no válida" }, 400);
     }

@@ -68,3 +68,19 @@ export async function verifyAdminSession(): Promise<AdminUser | null> {
     return null;
   }
 }
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ user: AdminUser | null; error: string | null }> {
+  try {
+    const { data, error } = await adminSupabase.functions.invoke("admin-auth", {
+      body: { action: "change-password", currentPassword, newPassword },
+    });
+    if (error) throw error;
+    if (data?.error) return { user: null, error: data.error };
+    if (data?.user) {
+      localStorage.setItem("admin_session", JSON.stringify(data.user));
+    }
+    return { user: data?.user ?? null, error: null };
+  } catch (e) {
+    return { user: null, error: e instanceof Error ? e.message : "Error de conexión" };
+  }
+}
