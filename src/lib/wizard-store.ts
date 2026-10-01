@@ -8,13 +8,13 @@ export type Category = {
   accent: string;
 };
 
+// 5 categorías del documento original (eliminadas: boda, nacimiento, amistad)
 export const CATEGORIES: Category[] = [
   { id: "cumpleanos", label: "Cumpleaños", icon: "Cake", description: "Celebrar un año más", accent: "cumpleanos" },
   { id: "graduacion", label: "Graduación", icon: "GraduationCap", description: "Un logro académico", accent: "graduacion" },
   { id: "aniversario", label: "Aniversario", icon: "Heart", description: "Tiempo compartido", accent: "aniversario" },
-  { id: "boda", label: "Boda", icon: "Gem", description: "Un nuevo comienzo", accent: "boda" },
-  { id: "nacimiento", label: "Nacimiento", icon: "Baby", description: "Bienvenida al mundo", accent: "nacimiento" },
-  { id: "amistad", label: "Amistad", icon: "Sparkles", description: "Cariño sincero", accent: "amistad" },
+  { id: "luto", label: "Luto", icon: "Flower", description: "Acompañar en el duelo", accent: "luto" },
+  { id: "amor", label: "Amor", icon: "Gift", description: "Expresar cariño", accent: "amor" },
 ];
 
 export const PRICE_PER_MESSAGE = 4990; // COP

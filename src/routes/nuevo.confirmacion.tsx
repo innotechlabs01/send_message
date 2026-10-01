@@ -69,6 +69,12 @@ function PaymentConfirmation() {
 
       if (!isMountedRef.current) return;
 
+      // Check if Bold API returned an error in the response body (even with 2xx HTTP)
+      const boldError = result?.error || result?.error_message || result?.message;
+      if (boldError) {
+        throw new Error(typeof boldError === 'string' ? boldError : 'Error en la respuesta de Bold');
+      }
+
       const boldStatus = result?.status || result?.state || "UNKNOWN";
       const gwReason = result?.reason || result?.decline_reason || result?.error_message;
       const gwRaw = result as Record<string, unknown>;
@@ -104,8 +110,11 @@ function PaymentConfirmation() {
     } catch (err: unknown) {
       if (!isMountedRef.current) return;
       const msg = err instanceof Error ? err.message : "Error verificando pago";
-      setStatus("failure");
-      setError(msg);
+      // Don't override if we already have a terminal state from a previous successful poll
+      if (status !== "success" && status !== "failure" && status !== "gateway_blocked") {
+        setStatus("failure");
+        setError(msg);
+      }
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
@@ -215,7 +224,10 @@ function PaymentConfirmation() {
         </div>
       </main>
 
-      <StepFooter />
+      <StepFooter>
+        <>
+        </>
+      </StepFooter>
     </StepShell>
   );
 }

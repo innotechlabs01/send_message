@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as NuevoCarritoRouteImport } from './routes/nuevo.carrito'
 import { Route as NuevoCategoriaRouteImport } from './routes/nuevo.categoria'
 import { Route as NuevoConfirmacionRouteImport } from './routes/nuevo.confirmacion'
@@ -21,6 +23,16 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => AdminRoute,
 } as any)
 const NuevoCarritoRoute = NuevoCarritoRouteImport.update({
   id: '/nuevo/carrito',
@@ -55,6 +67,8 @@ const NuevoPagoRoute = NuevoPagoRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/admin/login': typeof AdminLoginRoute
   '/nuevo/carrito': typeof NuevoCarritoRoute
   '/nuevo/categoria': typeof NuevoCategoriaRoute
   '/nuevo/confirmacion': typeof NuevoConfirmacionRoute
@@ -64,6 +78,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/admin/login': typeof AdminLoginRoute
   '/nuevo/carrito': typeof NuevoCarritoRoute
   '/nuevo/categoria': typeof NuevoCategoriaRoute
   '/nuevo/confirmacion': typeof NuevoConfirmacionRoute
@@ -74,6 +90,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/admin/login': typeof AdminLoginRoute
   '/nuevo/carrito': typeof NuevoCarritoRoute
   '/nuevo/categoria': typeof NuevoCategoriaRoute
   '/nuevo/confirmacion': typeof NuevoConfirmacionRoute
@@ -85,6 +103,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
+    | '/admin/login'
     | '/nuevo/carrito'
     | '/nuevo/categoria'
     | '/nuevo/confirmacion'
@@ -94,6 +114,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
+    | '/admin/login'
     | '/nuevo/carrito'
     | '/nuevo/categoria'
     | '/nuevo/confirmacion'
@@ -103,6 +125,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin'
+    | '/admin/login'
     | '/nuevo/carrito'
     | '/nuevo/categoria'
     | '/nuevo/confirmacion'
@@ -113,6 +137,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
   NuevoCarritoRoute: typeof NuevoCarritoRoute
   NuevoCategoriaRoute: typeof NuevoCategoriaRoute
   NuevoConfirmacionRoute: typeof NuevoConfirmacionRoute
@@ -129,6 +154,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/nuevo/carrito': {
       id: '/nuevo/carrito'
@@ -175,8 +214,19 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminRouteChildren {
+  AdminLoginRoute: typeof AdminLoginRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminLoginRoute: AdminLoginRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
   NuevoCarritoRoute: NuevoCarritoRoute,
   NuevoCategoriaRoute: NuevoCategoriaRoute,
   NuevoConfirmacionRoute: NuevoConfirmacionRoute,

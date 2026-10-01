@@ -1,14 +1,14 @@
 import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
 import * as LucideIcons from "lucide-react";
-import { Lock, CreditCard, Loader2, CheckCircle2, Building2, ArrowRight, Shield, AlertCircle, RotateCcw } from "lucide-react";
+import { Lock, CreditCard, Loader2, CheckCircle2, ArrowRight, Shield, AlertCircle, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { wizard, useWizard, getCategory, PRICE_PER_MESSAGE } from "@/lib/wizard-store";
 import { StepHeader } from "@/components/StepHeader";
 import { StepShell } from "@/components/StepShell";
-import { createPaymentIntent, getPseBanks, type BoldPaymentMethod, type BoldPayer } from "@/lib/bold";
+import { createPaymentIntent, type BoldPayer } from "@/lib/bold";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -35,20 +35,11 @@ function PaymentStep() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "pse">("card");
   const [creatingIntent, setCreatingIntent] = useState(false);
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
-  const [pseBanks, setPseBanks] = useState<Array<{ bank_code: string; bank_name: string }>>([]);
-  const [selectedBank, setSelectedBank] = useState("");
   const [existingPayment, setExistingPayment] = useState<ExistingPayment | null>(null);
   const [checkingExisting, setCheckingExisting] = useState(true);
   const [retrying, setRetrying] = useState(false);
-
-  // Card fields
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardName, setCardName] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvc, setCardCvc] = useState("");
 
   // Check for existing payment on mount
   useEffect(() => {
@@ -87,14 +78,6 @@ function PaymentStep() {
     checkExisting();
   }, [state.hydrated, state.items]);
 
-  useEffect(() => {
-    if (paymentMethod === "pse" && pseBanks.length === 0) {
-      getPseBanks()
-        .then((res) => setPseBanks(res.payload?.banks || []))
-        .catch(() => toast.error("Error cargando bancos"));
-    }
-  }, [paymentMethod, pseBanks.length]);
-
   if (!state.hydrated) return <StepShell />;
   if (state.items.length === 0) return <Navigate to="/nuevo/carrito" />;
 
@@ -102,18 +85,12 @@ function PaymentStep() {
 
   // Validation helpers
   const isPersonalInfoValid = email.includes("@") && name.trim().length > 0;
-  const isCardValid = cardNumber.trim().length >= 15 && cardName.trim().length > 0 && cardExpiry.trim().length === 5 && cardCvc.trim().length >= 3;
-  const isPseValid = selectedBank.length > 0;
-  const isFormValid = isPersonalInfoValid && (paymentMethod === "card" ? isCardValid : isPseValid);
+  const isFormValid = isPersonalInfoValid;
 
   async function createIntent() {
     if (!isFormValid) {
       if (!email.includes("@") || !name.trim()) {
         toast.error("Completa nombre y correo válido");
-      } else if (paymentMethod === "card" && !isCardValid) {
-        toast.error("Completa los datos de la tarjeta");
-      } else if (paymentMethod === "pse" && !isPseValid) {
-        toast.error("Selecciona un banco");
       }
       return;
     }
@@ -148,52 +125,9 @@ function PaymentStep() {
         return;
       }
 
-      const payer: BoldPayer = {
-        personType: "NATURAL_PERSON",
-        name,
-        phone: phone || "0000000000",
-        email,
-        documentType: "CEDULA",
-        documentNumber: "0000000000",
-      };
-
-      let paymentMethodData: BoldPaymentMethod;
-
-      if (paymentMethod === "card") {
-        const [month, year] = cardExpiry.split("/");
-        paymentMethodData = {
-          name: "CREDIT_CARD",
-          cardNumber: cardNumber.replace(/\s/g, ""),
-          cardholderName: cardName,
-          expirationMonth: month,
-          expirationYear: `20${year}`,
-          cvc: cardCvc,
-          installments: 1,
-        };
-      } else {
-        paymentMethodData = {
-          name: "PSE",
-          bankCode: selectedBank,
-          bankName: pseBanks.find((b) => b.bank_code === selectedBank)?.bank_name || "",
-        };
-      }
-
-      const { processPayment } = await import("@/lib/bold");
-      const paymentResult = await processPayment({
-        referenceId,
-        payer,
-        paymentMethod: paymentMethodData,
-      });
-
-      if (paymentResult.error) throw new Error(paymentResult.error);
-
-      if (paymentResult.payload?.next_actions?.redirect_url) {
-        setRedirectUrl(paymentResult.payload.next_actions.redirect_url);
-        return;
-      }
-
-      toast.success("¡Pago procesado exitosamente!");
-      navigate({ to: "/nuevo/confirmacion", search: { payment_id: referenceId } });
+      // If no redirect URL, we need to process payment directly
+      // But Bold should always return a redirect_url for the hosted payment page
+      toast.error("No se pudo obtener la URL de pago. Intenta nuevamente.");
     } catch (err) {
       console.error("Payment error:", err);
       toast.error(err instanceof Error ? err.message : "Error creando la orden de pago");
@@ -234,48 +168,7 @@ function PaymentStep() {
         return;
       }
 
-      const payer: BoldPayer = {
-        personType: "NATURAL_PERSON",
-        name,
-        phone: phone || "0000000000",
-        email,
-        documentType: "CEDULA",
-        documentNumber: "0000000000",
-      };
-
-      let paymentMethodData: BoldPaymentMethod;
-      if (paymentMethod === "card") {
-        const [month, year] = cardExpiry.split("/");
-        paymentMethodData = {
-          name: "CREDIT_CARD",
-          cardNumber: cardNumber.replace(/\s/g, ""),
-          cardholderName: cardName,
-          expirationMonth: month,
-          expirationYear: `20${year}`,
-          cvc: cardCvc,
-          installments: 1,
-        };
-      } else {
-        paymentMethodData = {
-          name: "PSE",
-          bankCode: selectedBank,
-          bankName: pseBanks.find((b) => b.bank_code === selectedBank)?.bank_name || "",
-        };
-      }
-
-      const { processPayment } = await import("@/lib/bold");
-      const paymentResult = await processPayment({
-        referenceId,
-        payer,
-        paymentMethod: paymentMethodData,
-      });
-
-      if (paymentResult.error) throw new Error(paymentResult.error);
-
-      if (paymentResult.payload?.next_actions?.redirect_url) {
-        setRedirectUrl(paymentResult.payload.next_actions.redirect_url);
-        setExistingPayment(null);
-      }
+      toast.error("No se pudo obtener la URL de pago. Intenta nuevamente.");
     } catch (err) {
       console.error("Retry error:", err);
       toast.error(err instanceof Error ? err.message : "Error en reintento");
@@ -309,7 +202,7 @@ function PaymentStep() {
   const createBtnIcon = creatingIntent
     ? <Loader2 className="w-4 h-4 animate-spin" />
     : <CreditCard className="w-4 h-4" />;
-  const createBtnText = creatingIntent ? "Creando orden..." : "Crear orden y continuar a Bold";
+  const createBtnText = creatingIntent ? "Creando orden..." : "Pagar con Bold";
 
   // Button icon/text for retry
   const retryBtnIcon = retrying
@@ -334,10 +227,6 @@ function PaymentStep() {
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Total a pagar</span>
                 <span className="font-semibold">${total.toLocaleString("es-CO")} COP</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Método</span>
-                <span className="font-medium capitalize">{paymentMethod === "card" ? "Tarjeta" : "PSE"}</span>
               </div>
             </div>
             <div className="mt-8 flex justify-center gap-3">
@@ -411,7 +300,7 @@ function PaymentStep() {
             step={4}
             total={4}
             title="Datos de pago"
-            subtitle="Completa tus datos básicos. Te llevaremos a la pasarela segura para finalizar."
+            subtitle="Completa tus datos básicos. Te llevaremos a la pasarela segura de Bold para finalizar."
             backTo="/nuevo/carrito"
           />
 
@@ -428,67 +317,6 @@ function PaymentStep() {
                 <Input label="Teléfono" placeholder="3001234567" value={phone} onChange={setPhone} type="tel" />
               </div>
 
-              <div className="mb-6">
-                <span className="text-xs uppercase tracking-widest text-muted-foreground">Método de pago</span>
-                <div className="flex gap-3 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("card")}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border transition-colors ${
-                      paymentMethod === "card"
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border bg-secondary/40 text-muted-foreground hover:border-primary/50"
-                    }`}
-                  >
-                    <CreditCard className="w-4 h-4" />
-                    Tarjeta
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("pse")}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border transition-colors ${
-                      paymentMethod === "pse"
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border bg-secondary/40 text-muted-foreground hover:border-primary/50"
-                    }`}
-                  >
-                    <Building2 className="w-4 h-4" />
-                    PSE
-                  </button>
-                </div>
-              </div>
-
-              {paymentMethod === "card" && (
-                <div className="space-y-4 mb-6">
-                  <Input label="Número de tarjeta" placeholder="1234 5678 9012 3456" value={cardNumber} onChange={setCardNumber} />
-                  <Input label="Nombre en la tarjeta" placeholder="Como aparece en la tarjeta" value={cardName} onChange={setCardName} />
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input label="Vencimiento" placeholder="MM/AA" value={cardExpiry} onChange={setCardExpiry} />
-                    <Input label="CVC" placeholder="123" value={cardCvc} onChange={setCardCvc} />
-                  </div>
-                </div>
-              )}
-
-              {paymentMethod === "pse" && (
-                <div className="mb-6">
-                  <label className="block">
-                    <span className="text-xs uppercase tracking-widest text-muted-foreground">Banco</span>
-                    <select
-                      value={selectedBank}
-                      onChange={(e) => setSelectedBank(e.target.value)}
-                      className="mt-2 w-full bg-input/60 border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-primary transition-colors"
-                    >
-                      <option value="">Selecciona tu banco</option>
-                      {pseBanks.map((bank) => (
-                        <option key={bank.bank_code} value={bank.bank_code}>
-                          {bank.bank_name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              )}
-
               <button onClick={createIntent} disabled={creatingIntent || !isFormValid} className="mt-4 w-full btn-base btn-primary">
                 {createBtnIcon} {createBtnText}
               </button>
@@ -498,7 +326,7 @@ function PaymentStep() {
                 </p>
               )}
               <p className="text-xs text-muted-foreground mt-4 text-center">
-                Al continuar serás redirigido a Bold Colombia para pagar de forma segura.
+                Al continuar serás redirigido a Bold Colombia donde podrás elegir tu método de pago (tarjeta, PSE, Nequi, etc.) y pagar de forma segura.
               </p>
             </section>
 

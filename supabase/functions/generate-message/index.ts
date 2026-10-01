@@ -1,4 +1,4 @@
-// Generate AI message suggestions for special occasions
+// Generate AI message suggestions for special occasions (fallback when predefined messages exhausted)
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -8,11 +8,18 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { category, recipient, sender, tone, seed } = await req.json();
+    const { category, recipient, sender, tone, seed, examples } = await req.json();
     const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
     if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY no configurada");
 
-    const sys = `Eres un escritor experto en mensajes especiales y emotivos en español. Generas mensajes breves (máximo 3 frases), originales, con sentimiento genuino y modernos —nada cursi ni cliché. Evita rimas obvias.`;
+    // Construir ejemplos para few-shot prompting
+    let examplesSection = "";
+    if (examples && Array.isArray(examples) && examples.length > 0) {
+      const formattedExamples = examples.map((msg, i) => `${i + 1}. "${msg}"`).join("\n");
+      examplesSection = `\n\nEJEMPLOS DE CALIDAD (usa estos como referencia de estilo, tono y longitud):\n${formattedExamples}\n\nGenera mensajes de IGUAL O MEJOR calidad que estos ejemplos.`;
+    }
+
+    const sys = `Eres un escritor experto en mensajes especiales y emotivos en español. Generas mensajes breves (máximo 3 frases), originales, con sentimiento genuino y modernos —nada cursi ni cliché. Evita rimas obvias.${examplesSection}`;
     const usr = `Genera 5 mensajes únicos para la ocasión: "${category}".
 ${recipient ? `Destinatario: ${recipient}.` : ""}
 ${sender ? `De parte de: ${sender}.` : ""}

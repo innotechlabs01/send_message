@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { RefreshCw, Loader2, Pin, PinOff } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { RefreshCw, Loader2, Pin, PinOff, Sparkles, Database } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { wizard, useWizard, getCategory } from "@/lib/wizard-store";
@@ -14,6 +14,9 @@ export const Route = createFileRoute("/nuevo/mensaje")({
 
 const MAX_PINNED = 2;
 const TOTAL_SLOTS = 5;
+const PAGE_SIZE = 5;
+
+type MessageSource = "db" | "ai";
 
 function MessageStep() {
   const navigate = useNavigate();
@@ -22,28 +25,78 @@ function MessageStep() {
   const [messages, setMessages] = useState<string[]>([]);
   const [pinned, setPinned] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [seed, setSeed] = useState(0);
+  const [source, setSource] = useState<MessageSource>("db");
+  const [offset, setOffset] = useState(0);
+  const [aiSeed, setAiSeed] = useState(0);
+  const [hasMoreDb, setHasMoreDb] = useState(true);
+  const [lastDbMessages, setLastDbMessages] = useState<string[]>([]);
 
-  async function load(nextSeed: number) {
+  // Cargar mensajes (BD o IA)
+  const loadMessages = useCallback(async () => {
     if (!category) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-message", {
-        body: { category: category.label, seed: nextSeed },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      setMessages(data?.messages ?? []);
+      if (source === "db") {
+        // Cargar desde BD
+        const { data, error } = await supabase.functions.invoke("get-predefined-messages", {
+          body: { category: category.id, offset, limit: PAGE_SIZE },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        const newMessages = data?.messages ?? [];
+        const hasMore = data?.hasMore ?? false;
+
+        // Agregar mensajes nuevos a los existentes (no reemplazar si hay anclados)
+        setMessages((prev) => {
+          const combined = [...prev, ...newMessages];
+          // Eliminar duplicados manteniendo orden
+          return Array.from(new Set(combined));
+        });
+        setHasMoreDb(hasMore);
+        setOffset((prev) => prev + PAGE_SIZE);
+
+        // Guardar últimos mensajes de BD para few-shot en IA
+        if (newMessages.length > 0) {
+          setLastDbMessages(newMessages);
+        }
+
+        // Si no hay más en BD, cambiar a IA
+        if (!hasMore) {
+          setSource("ai");
+          setAiSeed(0);
+          toast.info("Generando nuevos mensajes con IA...", { duration: 2000 });
+        }
+      } else {
+        // Generar con IA (usando últimos mensajes BD como ejemplos)
+        const { data, error } = await supabase.functions.invoke("generate-message", {
+          body: {
+            category: category.label,
+            seed: aiSeed,
+            examples: lastDbMessages.length > 0 ? lastDbMessages.slice(-5) : undefined,
+          },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        const newMessages = data?.messages ?? [];
+        setMessages((prev) => {
+          const combined = [...prev, ...newMessages];
+          return Array.from(new Set(combined));
+        });
+        setAiSeed((prev) => prev + 1);
+      }
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "No fue posible generar los mensajes";
+      const msg = e instanceof Error ? e.message : "No fue posible cargar los mensajes";
       toast.error(msg);
     } finally {
       setLoading(false);
     }
-  }
+  }, [category, source, offset, aiSeed, lastDbMessages]);
 
+  // Carga inicial
   useEffect(() => {
-    if (category) load(0);
+    if (category) loadMessages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category?.id]);
 
@@ -66,13 +119,14 @@ function MessageStep() {
     });
   }
 
-  function regenerate() {
-    const next = seed + 1;
-    setSeed(next);
-    load(next);
+  function handleRefresh() {
+    loadMessages();
   }
 
+  // Filtrar mensajes: anclados + frescos (hasta TOTAL_SLOTS)
   const freshMessages = messages.filter((m) => !pinned.includes(m)).slice(0, TOTAL_SLOTS - pinned.length);
+  const showDbBadge = source === "db" && messages.length > 0;
+  const showAiBadge = source === "ai";
 
   return (
     <StepShell withFooter>
@@ -83,6 +137,29 @@ function MessageStep() {
         subtitle="Elige el que más resuene. Ancla los que te gusten para compararlos con los nuevos."
         backTo="/nuevo/categoria"
       />
+
+      {/* Indicador de fuente */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {showDbBadge && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              <Database className="w-3 h-3" />
+              Mensajes originales
+            </span>
+          )}
+          {showAiBadge && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+              <Sparkles className="w-3 h-3" />
+              Generados por IA
+            </span>
+          )}
+        </div>
+        {source === "db" && offset > 0 && (
+          <span className="text-xs text-muted-foreground">
+            Mostrando {Math.min(offset, messages.length)} de {messages.length} mensajes
+          </span>
+        )}
+      </div>
 
       {pinned.length > 0 && (
         <section className="mb-6">
@@ -107,8 +184,8 @@ function MessageStep() {
             ))
           : freshMessages.map((m, i) => (
               <MessageItem
-                key={`${seed}-${i}`}
-                index={i + 1}
+                key={`${source}-${offset}-${i}`}
+                index={i + 1 + pinned.length}
                 message={m}
                 onPick={() => pick(m)}
                 onTogglePin={() => togglePin(m)}
@@ -122,7 +199,7 @@ function MessageStep() {
           <p className="hidden sm:block text-sm text-muted-foreground">
             ¿Quieres más opciones? Refresca y compara con tus anclados.
           </p>
-          <button onClick={regenerate} disabled={loading} className="btn-base btn-secondary w-full sm:w-auto">
+          <button onClick={handleRefresh} disabled={loading} className="btn-base btn-secondary w-full sm:w-auto">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             Refrescar
           </button>
@@ -147,7 +224,7 @@ function MessageItem({
         aria-label={pinned ? "Desanclar" : "Anclar"}
         className={`shrink-0 w-9 h-9 rounded-full grid place-items-center border transition-colors ${
           pinned ? "bg-primary text-primary-foreground border-transparent"
-                 : "bg-card text-muted-foreground border-border hover:text-foreground hover:border-primary/40"
+                   : "bg-card text-muted-foreground border-border hover:text-foreground hover:border-primary/40"
         }`}
       >
         {pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
