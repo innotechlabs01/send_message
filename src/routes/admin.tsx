@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   DollarSign,
   Send,
+  CreditCard,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -58,6 +59,41 @@ function formatCop(amount: number): string {
   }).format(amount || 0);
 }
 
+function renderPaymentStateBadge(state: string | null, status: string) {
+  const normState = (state || status || "").toUpperCase();
+  if (normState === "APPROVED" || normState === "SUCCESS" || normState === "PAID") {
+    return (
+      <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-500/10 text-emerald-600 font-medium">
+        {state || "Aprobado"}
+      </span>
+    );
+  }
+  if (normState === "PENDING") {
+    return (
+      <span className="px-2 py-0.5 text-xs rounded-full bg-amber-500/10 text-amber-600 font-medium">
+        Pendiente
+      </span>
+    );
+  }
+  if (
+    normState === "DECLINED" ||
+    normState === "REJECTED" ||
+    normState === "FAILED" ||
+    normState === "GATEWAY_BLOCKED"
+  ) {
+    return (
+      <span className="px-2 py-0.5 text-xs rounded-full bg-red-500/10 text-red-500 font-medium">
+        {state || "Fallido"}
+      </span>
+    );
+  }
+  return (
+    <span className="px-2 py-0.5 text-xs rounded-full bg-secondary text-muted-foreground font-medium">
+      {state || status || "Desconocido"}
+    </span>
+  );
+}
+
 function AdminLayout() {
   const navigate = useNavigate();
   const [user, setUser] = useState<AdminUser | null>(null);
@@ -79,17 +115,13 @@ function AdminLayout() {
   const [loadingKpis, setLoadingKpis] = useState(false);
   const [retryingId, setRetryingId] = useState<string | null>(null);
 
-  // Verificar sesión en servidor al montar (sin confiar en localStorage)
+  // Verificar sesión en servidor al montar
   useEffect(() => {
     let active = true;
     verifyAdminSession()
       .then((u) => {
         if (!active) return;
-        if (!u) {
-          navigate({ to: "/admin/login" });
-        } else {
-          setUser(u);
-        }
+        setUser(u);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -97,7 +129,7 @@ function AdminLayout() {
     return () => {
       active = false;
     };
-  }, [navigate]);
+  }, []);
 
   const loadMessages = useCallback(async (category: CategoryId) => {
     setLoadingMessages(true);
@@ -258,7 +290,9 @@ function AdminLayout() {
     );
   }
 
-  if (!user) return <Navigate to="/admin/login" />;
+  if (!user) {
+    return <Navigate to="/admin/login" replace />;
+  }
 
   return (
     <StepShell>
@@ -381,10 +415,15 @@ function AdminLayout() {
                       <p className="text-2xl font-bold mt-2">
                         {kpiData?.paymentFunnel.conversion_rate_pct ?? 0}%
                       </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {kpiData?.paymentFunnel.success_count ?? 0} exitosos de{" "}
-                        {kpiData?.paymentFunnel.total_intents ?? 0} intentos
-                      </p>
+                      <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                        <p>
+                          {kpiData?.paymentFunnel.success_count ?? 0} exitosos de{" "}
+                          {kpiData?.paymentFunnel.total_intents ?? 0} intentos
+                        </p>
+                        <p className="text-[11px] text-muted-foreground/80">
+                          Bloqueados pasarela: {kpiData?.paymentFunnel.blocked_count ?? 0}
+                        </p>
+                      </div>
                     </div>
 
                     <div className="glass rounded-2xl p-5 border border-border/40">
@@ -395,10 +434,16 @@ function AdminLayout() {
                       <p className="text-2xl font-bold mt-2">
                         {kpiData?.deliveryHealth.delivery_rate_pct ?? 0}%
                       </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {kpiData?.deliveryHealth.sent_messages ?? 0} enviados /{" "}
-                        {kpiData?.deliveryHealth.pending_messages ?? 0} en cola
-                      </p>
+                      <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                        <p>
+                          {kpiData?.deliveryHealth.sent_messages ?? 0} enviados /{" "}
+                          {kpiData?.deliveryHealth.pending_messages ?? 0} en cola
+                        </p>
+                        <p className="text-[11px] text-muted-foreground/80">
+                          Entregados: {kpiData?.deliveryHealth.wa_delivered_count ?? 0} • Fallidos:{" "}
+                          {kpiData?.deliveryHealth.wa_failed_count ?? 0}
+                        </p>
+                      </div>
                     </div>
 
                     <div className="glass rounded-2xl p-5 border border-border/40">
@@ -413,6 +458,37 @@ function AdminLayout() {
                       <p className="text-xs text-muted-foreground mt-1">
                         Latencia prom: {kpiData?.deliveryHealth.avg_send_latency_seconds ?? 0}s
                       </p>
+                    </div>
+                  </div>
+
+                  {/* Operational Health Quick Bar */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="glass rounded-xl p-3 border border-border/40 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                        <span className="text-xs text-muted-foreground">WhatsApp Entregados</span>
+                      </div>
+                      <span className="font-semibold text-sm">
+                        {kpiData?.deliveryHealth.wa_delivered_count ?? 0}
+                      </span>
+                    </div>
+                    <div className="glass rounded-xl p-3 border border-border/40 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                        <span className="text-xs text-muted-foreground">WhatsApp Fallidos</span>
+                      </div>
+                      <span className="font-semibold text-sm">
+                        {kpiData?.deliveryHealth.wa_failed_count ?? 0}
+                      </span>
+                    </div>
+                    <div className="glass rounded-xl p-3 border border-border/40 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                        <span className="text-xs text-muted-foreground">Pagos Bloqueados</span>
+                      </div>
+                      <span className="font-semibold text-sm">
+                        {kpiData?.paymentFunnel.blocked_count ?? 0}
+                      </span>
                     </div>
                   </div>
 
@@ -478,6 +554,66 @@ function AdminLayout() {
                             </button>
                           </div>
                         ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Recent Payments Table */}
+                  <div className="glass rounded-2xl border border-border/40 overflow-hidden">
+                    <div className="p-4 border-b border-border/40 flex items-center justify-between">
+                      <div>
+                        <h2 className="font-semibold text-lg flex items-center gap-2">
+                          <CreditCard className="w-5 h-5 text-primary" /> Pagos Recientes
+                        </h2>
+                        <p className="text-xs text-muted-foreground">
+                          Últimas transacciones registradas en pasarela de pagos
+                        </p>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {kpiData?.recentPayments.length ?? 0} registros
+                      </span>
+                    </div>
+                    {!kpiData || kpiData.recentPayments.length === 0 ? (
+                      <div className="p-8 text-center text-muted-foreground text-sm">
+                        No hay pagos registrados aún.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                          <thead className="text-xs uppercase text-muted-foreground bg-secondary/30">
+                            <tr>
+                              <th className="px-4 py-3">Referencia</th>
+                              <th className="px-4 py-3">Fecha</th>
+                              <th className="px-4 py-3">Método</th>
+                              <th className="px-4 py-3">Estado</th>
+                              <th className="px-4 py-3 text-right">Monto</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/40">
+                            {kpiData.recentPayments.map((payment) => (
+                              <tr key={payment.id} className="hover:bg-secondary/20">
+                                <td className="px-4 py-3 font-mono text-xs">
+                                  {payment.reference_id}
+                                </td>
+                                <td className="px-4 py-3 text-xs text-muted-foreground">
+                                  {new Date(payment.created_at).toLocaleString("es-CO", {
+                                    dateStyle: "short",
+                                    timeStyle: "short",
+                                  })}
+                                </td>
+                                <td className="px-4 py-3 text-xs uppercase">
+                                  {payment.payment_method || "N/A"}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {renderPaymentStateBadge(payment.state, payment.status)}
+                                </td>
+                                <td className="px-4 py-3 text-right font-medium">
+                                  {formatCop(payment.amount || payment.expected_amount_cop || 0)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     )}
                   </div>

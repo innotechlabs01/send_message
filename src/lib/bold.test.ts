@@ -56,7 +56,7 @@ describe("bold payment helper unit tests", () => {
     expect(mapped[1].recipientName).toBe("Carlos");
   });
 
-  it("generates deterministic cart signature string", () => {
+  it("generates deterministic cart signature string from all canonical fields", () => {
     const items = [
       {
         categoryId: "cumpleanos",
@@ -64,11 +64,18 @@ describe("bold payment helper unit tests", () => {
         recipientName: "Ana",
         recipientPhone: "3001112233",
         senderName: "Luis",
+        senderPhone: "3009998877",
         sendDate: "2026-12-25",
       },
     ];
     const signature = buildCartSignature(items);
-    expect(signature).toBe("cumpleanos-Ana-3001112233-2026-12-25");
+    expect(signature).toMatch(/^v2_[0-9a-f]{16}$/);
+    expect(buildCartSignature([...items])).toBe(signature);
+
+    // Changing messageText, senderName, or senderPhone changes signature
+    expect(buildCartSignature([{ ...items[0], messageText: "Otro mensaje" }])).not.toBe(signature);
+    expect(buildCartSignature([{ ...items[0], senderName: "Pedro" }])).not.toBe(signature);
+    expect(buildCartSignature([{ ...items[0], senderPhone: "3001230000" }])).not.toBe(signature);
   });
 
   it("generates valid UUID formatted idempotency keys", () => {

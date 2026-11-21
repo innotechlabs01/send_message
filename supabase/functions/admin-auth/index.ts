@@ -1,17 +1,19 @@
 import { z } from "https://deno.land/x/zod@v3.24.2/mod.ts";
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   createServiceClient,
   requireBearerSecret,
-  signHmacSha256Hex,
   timingSafeEqual,
-  verifyHmacSha256Hex,
 } from "../_shared/auth.ts";
+import {
+  buildSessionCookie,
+  signAdminSession,
+  verifyAdminSession,
+  SESSION_TTL_SECONDS,
+  type VerifiedAdminUser,
+} from "../_shared/admin-session.ts";
+import { checkUpstashRateLimit, getClientIp } from "../_shared/rate-limit.ts";
 import { getCorsHeaders, handleCorsPreflight, type CorsOptions } from "../_shared/cors.ts";
 import { jsonResponse, safeErrorResponse } from "../_shared/http.ts";
-
-const ADMIN_SESSION_COOKIE = "admin_session";
-const SESSION_TTL_SECONDS = 86400;
 
 const CORS_OPTIONS: CorsOptions = {
   credentials: true,
@@ -60,151 +62,6 @@ const adminAuthPayloadSchema = z.discriminatedUnion("action", [
   createSchema,
   changePasswordSchema,
 ]);
-
-interface SessionTokenPayload {
-  id: string;
-  email: string;
-  name: string | null;
-  iat: number;
-  exp: number;
-}
-
-export interface VerifiedAdminUser {
-  id: string;
-  email: string;
-  name: string | null;
-}
-
-function getSessionSecret(): string {
-  const secret = Deno.env.get("ADMIN_SESSION_SECRET");
-  if (!secret || secret.trim().length < 16) {
-    throw new Error("ADMIN_SESSION_SECRET must be configured with at least 16 characters");
-  }
-  return secret;
-}
-
-async function createSignedSessionToken(user: VerifiedAdminUser): Promise<string> {
-  const secret = getSessionSecret();
-  const now = Date.now();
-  const payload: SessionTokenPayload = {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    iat: now,
-    exp: now + SESSION_TTL_SECONDS * 1000,
-  };
-  const payloadB64 = btoa(JSON.stringify(payload));
-  const signatureHex = await signHmacSha256Hex(secret, payloadB64);
-  return `${payloadB64}.${signatureHex}`;
-}
-
-function buildSessionCookie(token: string, maxAgeSeconds: number): string {
-  return `${ADMIN_SESSION_COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAgeSeconds}`;
-}
-
-function extractRawSessionToken(req: Request): string | null {
-  const headerToken = req.headers.get("x-admin-token")?.trim();
-  if (headerToken) {
-    return headerToken;
-  }
-  const cookie = req.headers.get("cookie") ?? req.headers.get("Cookie") ?? "";
-  const match = cookie.match(new RegExp(`(?:^|;\\s*)${ADMIN_SESSION_COOKIE}=([^;]+)`));
-  return match ? match[1].trim() : null;
-}
-
-async function verifySessionToken(
-  req: Request,
-  adminSupabase: SupabaseClient,
-): Promise<VerifiedAdminUser | null> {
-  const rawToken = extractRawSessionToken(req);
-  if (!rawToken) return null;
-
-  const parts = rawToken.split(".");
-  if (parts.length !== 2) return null;
-
-  const [payloadB64, signatureHex] = parts;
-  if (!payloadB64 || !signatureHex) return null;
-
-  const secret = getSessionSecret();
-  const validSig = await verifyHmacSha256Hex(secret, payloadB64, signatureHex);
-  if (!validSig) return null;
-
-  try {
-    const decoded = JSON.parse(atob(payloadB64)) as Partial<SessionTokenPayload>;
-    if (
-      !decoded ||
-      typeof decoded.id !== "string" ||
-      typeof decoded.email !== "string" ||
-      typeof decoded.exp !== "number"
-    ) {
-      return null;
-    }
-
-    if (decoded.exp <= Date.now()) {
-      return null;
-    }
-
-    const { data: admin, error } = await adminSupabase
-      .from("admin_users")
-      .select("id, email, name")
-      .eq("id", decoded.id)
-      .single();
-
-    if (error || !admin) {
-      return null;
-    }
-
-    return {
-      id: admin.id,
-      email: admin.email,
-      name: admin.name,
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function checkUpstashRateLimit(
-  key: string,
-  maxRequests: number,
-  windowSeconds: number,
-): Promise<{ allowed: boolean; remaining: number }> {
-  const redisUrl = Deno.env.get("UPSTASH_REDIS_REST_URL")?.trim();
-  const redisToken = Deno.env.get("UPSTASH_REDIS_REST_TOKEN")?.trim();
-  if (!redisUrl || !redisToken) {
-    return { allowed: true, remaining: maxRequests };
-  }
-
-  try {
-    const cleanUrl = redisUrl.replace(/\/+$/, "");
-    const resp = await fetch(`${cleanUrl}/pipeline`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${redisToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify([
-        ["INCR", key],
-        ["EXPIRE", key, String(windowSeconds), "NX"],
-      ]),
-    });
-
-    if (!resp.ok) {
-      console.warn("[RateLimit] Upstash responded with status", resp.status);
-      return { allowed: true, remaining: maxRequests };
-    }
-
-    const results = (await resp.json()) as Array<{ result?: number }>;
-    const count = Number(results?.[0]?.result ?? 1);
-    return {
-      allowed: count <= maxRequests,
-      remaining: Math.max(0, maxRequests - count),
-    };
-  } catch (err) {
-    console.warn("[RateLimit] Upstash check failed, failing open:", err);
-    return { allowed: true, remaining: maxRequests };
-  }
-}
 
 async function hashPassword(password: string): Promise<string> {
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -326,10 +183,7 @@ Deno.serve(async (req) => {
 
     switch (payload.action) {
       case "login": {
-        const clientIp =
-          req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-          req.headers.get("cf-connecting-ip") ||
-          "unknown";
+        const clientIp = getClientIp(req);
         const normalizedEmail = payload.email.toLowerCase();
         const rateLimit = await checkUpstashRateLimit(
           `rl:admin-login:${clientIp}:${normalizedEmail}`,
@@ -365,7 +219,7 @@ Deno.serve(async (req) => {
           email: admin.email,
           name: admin.name,
         };
-        const signedToken = await createSignedSessionToken(user);
+        const signedToken = await signAdminSession(user);
 
         return jsonResponse({ user, token: signedToken }, 200, {
           ...corsHeaders,
@@ -381,7 +235,7 @@ Deno.serve(async (req) => {
       }
 
       case "verify": {
-        const user = await verifySessionToken(req, adminSupabase);
+        const user = await verifyAdminSession(req, adminSupabase);
         if (!user) {
           return jsonResponse({ user: null, error: "No autenticado" }, 401, {
             ...corsHeaders,
@@ -395,7 +249,7 @@ Deno.serve(async (req) => {
         const hasBootstrapSecret = isAuthorizedAdminCreate(req, payload.bootstrapSecret);
         const existingAdmin = hasBootstrapSecret
           ? null
-          : await verifySessionToken(req, adminSupabase);
+          : await verifyAdminSession(req, adminSupabase);
 
         if (!hasBootstrapSecret && !existingAdmin) {
           return jsonResponse(
@@ -427,7 +281,7 @@ Deno.serve(async (req) => {
       }
 
       case "change-password": {
-        const verifiedUser = await verifySessionToken(req, adminSupabase);
+        const verifiedUser = await verifyAdminSession(req, adminSupabase);
         if (!verifiedUser) {
           return jsonResponse({ error: "Sesión inválida o no autenticada" }, 401, {
             ...corsHeaders,
@@ -451,9 +305,13 @@ Deno.serve(async (req) => {
         }
 
         const newHash = await hashPassword(payload.newPassword);
+        const passwordChangedAt = new Date().toISOString();
         const { error: updError } = await adminSupabase
           .from("admin_users")
-          .update({ password_hash: newHash })
+          .update({
+            password_hash: newHash,
+            password_changed_at: passwordChangedAt,
+          })
           .eq("id", verifiedUser.id);
 
         if (updError) {
@@ -461,8 +319,12 @@ Deno.serve(async (req) => {
           return jsonResponse({ error: "Error actualizando contraseña" }, 500, corsHeaders);
         }
 
-        const signedToken = await createSignedSessionToken(verifiedUser);
-        return jsonResponse({ success: true, user: verifiedUser, token: signedToken }, 200, {
+        const updatedUser: VerifiedAdminUser = {
+          ...verifiedUser,
+          password_changed_at: passwordChangedAt,
+        };
+        const signedToken = await signAdminSession(updatedUser);
+        return jsonResponse({ success: true, user: updatedUser, token: signedToken }, 200, {
           ...corsHeaders,
           "Set-Cookie": buildSessionCookie(signedToken, SESSION_TTL_SECONDS),
         });

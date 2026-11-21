@@ -1,5 +1,5 @@
 // Bold Colombia payment helpers
-import { supabase } from "@/integrations/supabase/client";
+import { invokeEdgeFunction } from "@/lib/supabase-functions";
 import { PRICE_PER_MESSAGE, type CartItem } from "@/lib/wizard-store";
 
 export interface BoldPaymentItem {
@@ -71,52 +71,80 @@ export function mapCartItemsForPayment(
   }));
 }
 
-export function buildCartSignature(items: BoldPaymentItem[]): string {
-  return items
-    .map(
-      (item) => `${item.categoryId}-${item.recipientName}-${item.recipientPhone}-${item.sendDate}`,
-    )
-    .join("|");
+function fnv1a32(input: string, seed = 0x811c9dc5): string {
+  let hash = seed >>> 0;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
+function djb2_32(input: string): string {
+  let hash = 5381;
+  for (let i = 0; i < input.length; i++) {
+    hash = (Math.imul(hash, 33) ^ input.charCodeAt(i)) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
+export function buildCartSignature(
+  items: Array<BoldPaymentItem & { occasion?: string; scheduledAt?: string }>,
+): string {
+  const canonical = items.map((item) => ({
+    occasion: (item.occasion ?? item.categoryId ?? "").trim(),
+    messageText: (item.messageText ?? "").trim(),
+    recipientName: (item.recipientName ?? "").trim(),
+    recipientPhone: (item.recipientPhone ?? "").trim(),
+    senderName: (item.senderName ?? "").trim(),
+    senderPhone: (item.senderPhone ?? "").trim(),
+    scheduledAt: (item.scheduledAt ?? item.sendDate ?? "").trim(),
+  }));
+  const serialized = JSON.stringify(canonical);
+  return `v2_${fnv1a32(serialized)}${djb2_32(serialized)}`;
 }
 
 export async function createPaymentIntent(data: BoldPaymentIntent) {
   const idempotencyKey = data.idempotencyKey ?? generateIdempotencyKey();
   const expectedAmount = computeExpectedTotalCop(data.items.length);
 
-  const { data: result, error } = await supabase.functions.invoke("bold-payment", {
-    body: {
-      action: "create-payment-intent",
-      ...data,
-      idempotencyKey,
-      amount: expectedAmount,
-    },
+  return invokeEdgeFunction<{
+    referenceId?: string;
+    idempotencyKey?: string;
+    amount?: number;
+    currency?: string;
+    idempotentReplay?: boolean;
+    error?: string;
+    payload?: {
+      next_actions?: {
+        redirect_url?: string | null;
+      };
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  }>("bold-payment", {
+    action: "create-payment-intent",
+    ...data,
+    idempotencyKey,
+    amount: expectedAmount,
   });
-
-  if (error) throw error;
-  return result;
 }
 
 export async function checkExistingPayment(
   cartSignature: string,
 ): Promise<ExistingPaymentSummary | null> {
-  const { data: result, error } = await supabase.functions.invoke("bold-payment", {
-    body: {
+  const result = await invokeEdgeFunction<{ existingPayment?: ExistingPaymentSummary | null }>(
+    "bold-payment",
+    {
       action: "check-existing-payment",
       cartSignature,
     },
-  });
-
-  if (error) throw error;
-  return (result?.existingPayment as ExistingPaymentSummary | null) ?? null;
+  );
+  return result?.existingPayment ?? null;
 }
 
 export async function getPaymentStatus(referenceId: string) {
-  const { data: result, error } = await supabase.functions.invoke("confirm-payment", {
-    body: {
-      referenceId,
-    },
+  return invokeEdgeFunction<Record<string, unknown>>("confirm-payment", {
+    referenceId,
   });
-
-  if (error) throw error;
-  return result;
 }

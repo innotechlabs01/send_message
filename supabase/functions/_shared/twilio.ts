@@ -26,7 +26,7 @@ export interface TwilioMessageResponse {
  * - whatsapp channel prefix if whatsappChannel=true: "whatsapp:+573001234567"
  */
 export function normalizeColombianE164(phone: string, whatsappChannel = false): string {
-  if (!phone) {
+  if (!phone || typeof phone !== "string") {
     throw new Error("Phone number is required");
   }
 
@@ -41,15 +41,13 @@ export function normalizeColombianE164(phone: string, whatsappChannel = false): 
     cleaned = cleaned.slice(1);
   }
 
-  // If 10 digits starting with 3 (standard Colombian mobile like 3001234567)
+  // Standard Colombian mobile: 10 digits starting with 3 (e.g. 3001234567)
   if (/^3\d{9}$/.test(cleaned)) {
     cleaned = `57${cleaned}`;
   } else if (/^573\d{9}$/.test(cleaned)) {
-    // Already has 57 country code + 10 digits
-  } else if (/^\d{7,15}$/.test(cleaned)) {
-    // Other digit sequence, keep as is with country code if provided
+    // Already has 57 country code + 10-digit mobile
   } else {
-    throw new Error(`Invalid Colombian phone format: ${phone}`);
+    throw new Error(`Invalid Colombian mobile phone format: ${phone}. Expected 10 digits starting with 3.`);
   }
 
   const e164 = `+${cleaned}`;

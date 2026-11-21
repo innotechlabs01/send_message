@@ -200,7 +200,50 @@ function extractWebhookFields(payload: Record<string, unknown>): {
   };
 }
 
-Deno.serve(async (req: Request) => {
+function stateToEventType(
+  state: InternalPaymentState,
+): "pending" | "success" | "blocked" | "failed" {
+  if (state === "success") return "success";
+  if (state === "gateway_blocked") return "blocked";
+  if (state === "failure") return "failed";
+  return "pending";
+}
+
+async function logPaymentEvent(
+  supabase: ReturnType<typeof createServiceClient>,
+  event: {
+    referenceId: string;
+    eventType:
+      | "intent"
+      | "pending"
+      | "success"
+      | "blocked"
+      | "failed"
+      | "webhook_received"
+      | "signature_invalid"
+      | "amount_mismatch";
+    amountCop?: number | null;
+    currency?: string;
+    paymentMethod?: string | null;
+    metadata?: Record<string, unknown>;
+  },
+) {
+  try {
+    await supabase.from("payment_events").insert({
+      reference_id: event.referenceId,
+      event_type: event.eventType,
+      amount_cop: event.amountCop ?? null,
+      currency: event.currency ?? EXPECTED_CURRENCY,
+      payment_method: event.paymentMethod ?? null,
+      metadata: event.metadata ?? {},
+    });
+  } catch (err) {
+    console.warn("[bold-webhook] Failed to insert payment_events:", err);
+  }
+}
+
+if (import.meta.main) {
+  Deno.serve(async (req: Request) => {
   const preflight = handleCorsPreflight(req);
   if (preflight) return preflight;
 
@@ -227,8 +270,22 @@ Deno.serve(async (req: Request) => {
     const signatureHeader =
       req.headers.get("x-bold-signature") ?? req.headers.get("X-Bold-Signature");
 
+    const supabase = createServiceClient();
+
     const isSignatureValid = await verifyBoldWebhookSignature(rawBody, signatureHeader, secrets);
     if (!isSignatureValid) {
+      let maybeRef = "unknown";
+      try {
+        const parsedRaw = JSON.parse(rawBody) as Record<string, unknown>;
+        maybeRef = extractWebhookFields(parsedRaw).referenceId ?? "unknown";
+      } catch {
+        // ignore malformed json
+      }
+      await logPaymentEvent(supabase, {
+        referenceId: maybeRef,
+        eventType: "signature_invalid",
+        metadata: { hasSignature: Boolean(signatureHeader) },
+      });
       return jsonResponse({ error: "Invalid webhook signature" }, 401, corsHeaders);
     }
 
@@ -244,7 +301,6 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Missing payment referenceId" }, 400, corsHeaders);
     }
 
-    const supabase = createServiceClient();
     const { data: payment, error: lookupError } = await supabase
       .from("payments")
       .select("*")
@@ -257,6 +313,22 @@ Deno.serve(async (req: Request) => {
 
     if (!payment) {
       return jsonResponse({ error: "Payment reference not found" }, 404, corsHeaders);
+    }
+
+    // Guard terminal success state against regression from late/replayed webhooks
+    if (payment.state === "success") {
+      return jsonResponse(
+        {
+          ok: true,
+          referenceId: extracted.referenceId,
+          state: "success",
+          boldStatus: payment.bold_status ?? "SUCCESS",
+          scheduledCount: 0,
+          idempotentTerminal: true,
+        },
+        200,
+        corsHeaders,
+      );
     }
 
     const items: StoredCartItem[] = Array.isArray(payment.items_json)
@@ -281,6 +353,19 @@ Deno.serve(async (req: Request) => {
         })
         .eq("reference_id", extracted.referenceId);
 
+      await logPaymentEvent(supabase, {
+        referenceId: extracted.referenceId,
+        eventType: "amount_mismatch",
+        amountCop: extracted.amount,
+        currency: normalizedCurrency,
+        paymentMethod: extracted.paymentMethod,
+        metadata: {
+          reason: "currency_mismatch",
+          expectedCurrency: EXPECTED_CURRENCY,
+          receivedCurrency: normalizedCurrency,
+        },
+      });
+
       return jsonResponse(
         { error: `Currency mismatch: expected ${EXPECTED_CURRENCY}, got ${normalizedCurrency}` },
         400,
@@ -304,6 +389,18 @@ Deno.serve(async (req: Request) => {
           updated_at: new Date().toISOString(),
         })
         .eq("reference_id", extracted.referenceId);
+
+      await logPaymentEvent(supabase, {
+        referenceId: extracted.referenceId,
+        eventType: "amount_mismatch",
+        amountCop: extracted.amount,
+        currency: normalizedCurrency,
+        paymentMethod: extracted.paymentMethod,
+        metadata: {
+          expectedAmount,
+          receivedAmount: extracted.amount,
+        },
+      });
 
       return jsonResponse(
         {
@@ -335,6 +432,20 @@ Deno.serve(async (req: Request) => {
       return safeErrorResponse(updateError, corsHeaders, 500);
     }
 
+    await logPaymentEvent(supabase, {
+      referenceId: extracted.referenceId,
+      eventType: stateToEventType(mapped.state),
+      amountCop: expectedAmount,
+      currency: normalizedCurrency,
+      paymentMethod: extracted.paymentMethod ?? payment.payment_method,
+      metadata: {
+        boldStatus: mapped.boldStatus,
+        state: mapped.state,
+        reason: extracted.reason ?? null,
+        transactionId: extracted.transactionId ?? payment.transaction_id ?? null,
+      },
+    });
+
     let scheduledCount = 0;
 
     // Schedule messages ONLY on verified SUCCESS payment
@@ -350,12 +461,14 @@ Deno.serve(async (req: Request) => {
 
         const messageText = item.messageText ?? item.message ?? "";
         const senderName = item.senderName ?? item.sender ?? "";
+        const rawSenderPhone = item.senderPhone ?? item.phoneFrom ?? null;
         const itemIdempotencyKey = `${extracted.referenceId}:item:${idx}`;
 
         return {
           to_number: normalizedPhone,
           text: messageText,
           sender_name: senderName,
+          sender_phone: rawSenderPhone ? rawSenderPhone.trim() : null,
           sent: false,
           status: "pending",
           scheduled_for: resolveScheduledForIso(item.sendDate),
@@ -394,3 +507,4 @@ Deno.serve(async (req: Request) => {
     return safeErrorResponse(err, corsHeaders, 500);
   }
 });
+}

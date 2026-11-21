@@ -1,5 +1,6 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
+import { z } from "zod";
 import * as LucideIcons from "lucide-react";
 import {
   Lock,
@@ -8,12 +9,13 @@ import {
   ArrowRight,
   Shield,
   AlertCircle,
+  CheckCircle2,
   RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { useWizard, getCategory, PRICE_PER_MESSAGE } from "@/lib/wizard-store";
+import { useWizard, getCategory, PRICE_PER_MESSAGE, wizard } from "@/lib/wizard-store";
 import { StepHeader } from "@/components/StepHeader";
 import { StepShell } from "@/components/StepShell";
 import {
@@ -25,6 +27,48 @@ import {
   mapCartItemsForPayment,
   type ExistingPaymentSummary,
 } from "@/lib/bold";
+
+const checkoutCustomerSchema = z.object({
+  name: z.string().trim().min(1, "Ingresa tu nombre completo").max(120),
+  email: z.string().trim().email("Ingresa un correo electrónico válido").max(254),
+  phone: z.string().trim().max(32).optional(),
+});
+
+const PAYMENT_DRAFT_STORAGE_KEY = "sentido-payment-draft-v1";
+
+interface PaymentDraft {
+  cartSignature: string;
+  idempotencyKey: string;
+  referenceId: string;
+}
+
+function loadPaymentDraft(cartSignature: string): PaymentDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(PAYMENT_DRAFT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PaymentDraft>;
+    if (
+      parsed.cartSignature === cartSignature &&
+      typeof parsed.idempotencyKey === "string" &&
+      typeof parsed.referenceId === "string"
+    ) {
+      return parsed as PaymentDraft;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function savePaymentDraft(draft: PaymentDraft) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(PAYMENT_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  } catch {
+    // ignore storage quota errors
+  }
+}
 
 export const Route = createFileRoute("/nuevo/pago")({
   head: () => ({ meta: [{ title: "Pago — ConSentido" }] }),
@@ -52,7 +96,10 @@ function PaymentStep() {
 
       try {
         const payment = await checkExistingPayment(cartSignature);
-        if (payment && ["pending", "failure", "gateway_blocked"].includes(payment.state)) {
+        if (
+          payment &&
+          ["pending", "success", "failure", "gateway_blocked"].includes(payment.state)
+        ) {
           setExistingPayment(payment);
         }
       } catch (e) {
@@ -70,24 +117,46 @@ function PaymentStep() {
   const total = computeExpectedTotalCop(state.items.length);
 
   // Validation helpers
-  const isPersonalInfoValid = email.includes("@") && name.trim().length > 0;
-  const isFormValid = isPersonalInfoValid;
+  const customerValidation = checkoutCustomerSchema.safeParse({
+    name,
+    email,
+    phone: phone.trim() || undefined,
+  });
+  const isFormValid = customerValidation.success;
 
   async function createIntent() {
-    if (!isFormValid) {
-      if (!email.includes("@") || !name.trim()) {
-        toast.error("Completa nombre y correo válido");
-      }
+    if (existingPayment?.state === "success") {
+      toast.error("Este carrito ya fue pagado.");
+      return;
+    }
+
+    const parsed = checkoutCustomerSchema.safeParse({
+      name,
+      email,
+      phone: phone.trim() || undefined,
+    });
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? "Completa nombre y correo válido");
       return;
     }
 
     setCreatingIntent(true);
 
     try {
-      const idempotencyKey = generateIdempotencyKey();
-      const referenceId = `MSG-${Date.now()}-${idempotencyKey.slice(0, 8)}`;
+      const baseSignature = buildCartSignature(mapCartItemsForPayment(state.items, ""));
+      const existingDraft = loadPaymentDraft(baseSignature);
+      const idempotencyKey = existingDraft?.idempotencyKey ?? generateIdempotencyKey();
+      const referenceId =
+        existingDraft?.referenceId ?? `MSG-${Date.now()}-${idempotencyKey.slice(0, 8)}`;
+
+      savePaymentDraft({
+        cartSignature: baseSignature,
+        idempotencyKey,
+        referenceId,
+      });
+
       const callbackUrl = `${window.location.origin}/nuevo/confirmacion`;
-      const items = mapCartItemsForPayment(state.items, name.trim(), phone.trim());
+      const items = mapCartItemsForPayment(state.items, parsed.data.name, parsed.data.phone ?? "");
 
       const intentResult = await createPaymentIntent({
         referenceId,
@@ -96,7 +165,11 @@ function PaymentStep() {
         description: `ConSentido - ${state.items.length} mensaje(s)`,
         callbackUrl,
         items,
-        customer: { name: name.trim(), email: email.trim(), phone: phone.trim() },
+        customer: {
+          name: parsed.data.name,
+          email: parsed.data.email,
+          phone: parsed.data.phone,
+        },
       });
 
       if (intentResult.error) throw new Error(intentResult.error);
@@ -118,12 +191,41 @@ function PaymentStep() {
 
   async function retryPayment() {
     if (!existingPayment) return;
+    if (existingPayment.state === "success") {
+      toast.error("Este carrito ya fue pagado.");
+      return;
+    }
+
+    const parsed = checkoutCustomerSchema.safeParse({
+      name,
+      email,
+      phone: phone.trim() || undefined,
+    });
+    if (!parsed.success) {
+      toast.error(
+        parsed.error.issues[0]?.message ?? "Completa tu nombre y correo válido para reintentar",
+      );
+      setExistingPayment(null);
+      return;
+    }
+
     setRetrying(true);
     try {
-      const idempotencyKey = generateIdempotencyKey();
-      const referenceId = `MSG-${Date.now()}-${idempotencyKey.slice(0, 8)}-retry`;
+      const baseSignature = buildCartSignature(mapCartItemsForPayment(state.items, ""));
+      const existingDraft =
+        existingPayment.state === "pending" ? loadPaymentDraft(baseSignature) : null;
+      const idempotencyKey = existingDraft?.idempotencyKey ?? generateIdempotencyKey();
+      const referenceId =
+        existingDraft?.referenceId ?? `MSG-${Date.now()}-${idempotencyKey.slice(0, 8)}-retry`;
+
+      savePaymentDraft({
+        cartSignature: baseSignature,
+        idempotencyKey,
+        referenceId,
+      });
+
       const callbackUrl = `${window.location.origin}/nuevo/confirmacion`;
-      const items = mapCartItemsForPayment(state.items, name.trim(), phone.trim());
+      const items = mapCartItemsForPayment(state.items, parsed.data.name, parsed.data.phone ?? "");
 
       const intentResult = await createPaymentIntent({
         referenceId,
@@ -133,9 +235,9 @@ function PaymentStep() {
         callbackUrl,
         items,
         customer: {
-          name: name.trim() || undefined,
-          email: email.trim() || undefined,
-          phone: phone.trim() || undefined,
+          name: parsed.data.name,
+          email: parsed.data.email,
+          phone: parsed.data.phone,
         },
       });
 
@@ -162,10 +264,13 @@ function PaymentStep() {
   }
 
   // Pre-compute render pieces to satisfy TanStack router generator
+  const isAlreadyPaid = existingPayment?.state === "success";
   const isRetryable =
     existingPayment && ["pending", "failure", "gateway_blocked"].includes(existingPayment.state);
   const statusIcon =
-    existingPayment?.state === "pending" ? (
+    existingPayment?.state === "success" ? (
+      <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+    ) : existingPayment?.state === "pending" ? (
       <Loader2 className="w-6 h-6 animate-spin text-primary" />
     ) : existingPayment?.state === "failure" ? (
       <AlertCircle className="w-6 h-6 text-red-500" />
@@ -173,13 +278,15 @@ function PaymentStep() {
       <Shield className="w-6 h-6 text-amber-500" />
     ) : null;
   const statusTitle =
-    existingPayment?.state === "pending"
-      ? "Pago pendiente de confirmación"
-      : existingPayment?.state === "failure"
-        ? "Pago fallido"
-        : existingPayment?.state === "gateway_blocked"
-          ? "Pago bloqueado por la pasarela"
-          : "";
+    existingPayment?.state === "success"
+      ? "Este pedido ya fue pagado"
+      : existingPayment?.state === "pending"
+        ? "Pago pendiente de confirmación"
+        : existingPayment?.state === "failure"
+          ? "Pago fallido"
+          : existingPayment?.state === "gateway_blocked"
+            ? "Pago bloqueado por la pasarela"
+            : "";
 
   // Button icon/text for create intent
   const createBtnIcon = creatingIntent ? (
@@ -258,6 +365,32 @@ function PaymentStep() {
                 )}
               </div>
             </div>
+
+            {isAlreadyPaid && existingPayment && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground text-center">
+                  Ya registramos un pago aprobado para este carrito. No es necesario pagar de nuevo.
+                </p>
+                <div className="flex gap-3">
+                  <Link
+                    to="/nuevo/confirmacion"
+                    search={{ payment_id: existingPayment.reference_id }}
+                    className="flex-1 btn-base btn-primary text-center"
+                  >
+                    Ver confirmación
+                  </Link>
+                  <button
+                    onClick={() => {
+                      wizard.reset();
+                      setExistingPayment(null);
+                    }}
+                    className="flex-1 btn-base btn-secondary"
+                  >
+                    Limpiar carrito
+                  </button>
+                </div>
+              </div>
+            )}
 
             {isRetryable && (
               <div className="space-y-3">

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 
 export const adminSupabase = supabase;
 
@@ -6,6 +7,7 @@ export type AdminUser = {
   id: string;
   email: string;
   name: string | null;
+  password_changed_at?: string | null;
 };
 
 export type PredefinedMessageRow = {
@@ -90,6 +92,41 @@ const SESSION_TOKEN_KEY = "admin_signed_token";
 let verifiedAdminUser: AdminUser | null = null;
 let signedSessionToken: string | null = null;
 
+async function parseFunctionError(
+  error: unknown,
+  fallbackMessage = "Error de conexión",
+): Promise<string> {
+  if (
+    error instanceof FunctionsHttpError ||
+    (error && typeof error === "object" && "context" in error)
+  ) {
+    try {
+      const ctx = (error as { context?: unknown }).context;
+      if (ctx && typeof (ctx as Response).json === "function") {
+        const body = await (ctx as Response).json();
+        if (body && typeof body.error === "string") {
+          return body.error;
+        }
+      }
+    } catch {
+      // Ignore json parse failure and fall back
+    }
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallbackMessage;
+}
+
+export function hasStoredAdminSession(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return Boolean(window.sessionStorage.getItem(SESSION_TOKEN_KEY));
+  } catch {
+    return false;
+  }
+}
+
 function getSignedTokenHeader(): Record<string, string> | undefined {
   if (!signedSessionToken && typeof window !== "undefined") {
     try {
@@ -105,7 +142,6 @@ function setSignedToken(token: string | null) {
   signedSessionToken = token;
   if (typeof window !== "undefined") {
     try {
-      // Clean up legacy insecure localStorage key if present
       window.localStorage.removeItem("admin_session");
       if (token) {
         window.sessionStorage.setItem(SESSION_TOKEN_KEY, token);
@@ -127,7 +163,10 @@ export async function adminLogin(
       body: { action: "login", email, password },
     });
 
-    if (error) throw error;
+    if (error) {
+      const errMsg = await parseFunctionError(error, "Credenciales inválidas");
+      return { user: null, error: errMsg };
+    }
     if (data?.error) return { user: null, error: data.error };
 
     if (data?.user) {
@@ -139,7 +178,8 @@ export async function adminLogin(
 
     return { user: data?.user ?? null, error: null };
   } catch (e) {
-    return { user: null, error: e instanceof Error ? e.message : "Error de conexión" };
+    const errMsg = await parseFunctionError(e, "Error de conexión");
+    return { user: null, error: errMsg };
   }
 }
 
@@ -162,12 +202,22 @@ export function getAdminSession(): AdminUser | null {
 }
 
 export async function verifyAdminSession(): Promise<AdminUser | null> {
+  const headers = getSignedTokenHeader();
+  if (!headers) {
+    verifiedAdminUser = null;
+    return null;
+  }
+
   try {
     const { data, error } = await supabase.functions.invoke("admin-auth", {
       body: { action: "verify" },
-      headers: getSignedTokenHeader(),
+      headers,
     });
-    if (error) throw error;
+    if (error) {
+      verifiedAdminUser = null;
+      setSignedToken(null);
+      return null;
+    }
     if (data?.user) {
       verifiedAdminUser = data.user;
       return data.user;
@@ -191,7 +241,10 @@ export async function changePassword(
       body: { action: "change-password", currentPassword, newPassword },
       headers: getSignedTokenHeader(),
     });
-    if (error) throw error;
+    if (error) {
+      const errMsg = await parseFunctionError(error, "Error al cambiar contraseña");
+      return { user: null, error: errMsg };
+    }
     if (data?.error) return { user: null, error: data.error };
     if (data?.user) {
       verifiedAdminUser = data.user;
@@ -201,7 +254,8 @@ export async function changePassword(
     }
     return { user: data?.user ?? null, error: null };
   } catch (e) {
-    return { user: null, error: e instanceof Error ? e.message : "Error de conexión" };
+    const errMsg = await parseFunctionError(e, "Error de conexión");
+    return { user: null, error: errMsg };
   }
 }
 
@@ -210,7 +264,10 @@ export async function adminListMessages(categoryId: string): Promise<PredefinedM
     body: { action: "list", category_id: categoryId },
     headers: getSignedTokenHeader(),
   });
-  if (error) throw error;
+  if (error) {
+    const errMsg = await parseFunctionError(error, "Error cargando mensajes");
+    throw new Error(errMsg);
+  }
   if (data?.error) throw new Error(data.error);
   return (data?.messages as PredefinedMessageRow[]) ?? [];
 }
@@ -229,7 +286,10 @@ export async function adminCreateMessage(
     },
     headers: getSignedTokenHeader(),
   });
-  if (error) throw error;
+  if (error) {
+    const errMsg = await parseFunctionError(error, "Error creando mensaje");
+    throw new Error(errMsg);
+  }
   if (data?.error) throw new Error(data.error);
   return data.message as PredefinedMessageRow;
 }
@@ -248,7 +308,10 @@ export async function adminUpdateMessage(
     },
     headers: getSignedTokenHeader(),
   });
-  if (error) throw error;
+  if (error) {
+    const errMsg = await parseFunctionError(error, "Error actualizando mensaje");
+    throw new Error(errMsg);
+  }
   if (data?.error) throw new Error(data.error);
   return data.message as PredefinedMessageRow;
 }
@@ -258,7 +321,10 @@ export async function adminDeleteMessage(id: string): Promise<void> {
     body: { action: "delete", id },
     headers: getSignedTokenHeader(),
   });
-  if (error) throw error;
+  if (error) {
+    const errMsg = await parseFunctionError(error, "Error eliminando mensaje");
+    throw new Error(errMsg);
+  }
   if (data?.error) throw new Error(data.error);
 }
 
@@ -267,7 +333,10 @@ export async function adminFetchKpis(days = 30): Promise<AdminKpiOverview> {
     body: { action: "overview", days },
     headers: getSignedTokenHeader(),
   });
-  if (error) throw error;
+  if (error) {
+    const errMsg = await parseFunctionError(error, "Error obteniendo KPIs");
+    throw new Error(errMsg);
+  }
   if (data?.error) throw new Error(data.error);
   return data as AdminKpiOverview;
 }
@@ -279,7 +348,10 @@ export async function adminRetryScheduledMessage(
     body: { action: "retry", id },
     headers: getSignedTokenHeader(),
   });
-  if (error) throw error;
+  if (error) {
+    const errMsg = await parseFunctionError(error, "Error reintentando mensaje");
+    throw new Error(errMsg);
+  }
   if (data?.error) throw new Error(data.error);
   return data as { success: boolean; retriedCount: number };
 }

@@ -1,9 +1,41 @@
 -- 020_kpi_views.sql
--- Creates payment_events audit table and KPI views for Admin Ops Dashboard:
+-- Creates payment_events audit table, ensures whatsapp_logs exists,
+-- and creates KPI views for Admin Ops Dashboard:
 -- v_kpi_payment_funnel, v_kpi_delivery_health, v_kpi_daily_revenue
 
--- 1. Payment Events table for funnel & security audit tracking
-CREATE TABLE IF NOT EXISTS payment_events (
+-- 1. whatsapp_logs base table (must exist before views reference it)
+CREATE TABLE IF NOT EXISTS public.whatsapp_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipient text NOT NULL,
+  provider text DEFAULT 'twilio',
+  template_name text,
+  wa_message_id text,
+  status text DEFAULT 'sent',
+  scheduled_message_id uuid,
+  payment_reference_id text,
+  error_code text,
+  error_message text,
+  provider_status text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.whatsapp_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.whatsapp_logs FORCE ROW LEVEL SECURITY;
+
+REVOKE ALL ON TABLE public.whatsapp_logs FROM anon, authenticated;
+GRANT ALL ON TABLE public.whatsapp_logs TO service_role;
+
+DROP POLICY IF EXISTS "service_role_all_whatsapp_logs" ON public.whatsapp_logs;
+CREATE POLICY "service_role_all_whatsapp_logs"
+  ON public.whatsapp_logs
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+-- 2. Payment Events table for funnel & security audit tracking
+CREATE TABLE IF NOT EXISTS public.payment_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   reference_id text NOT NULL,
   event_type text NOT NULL CHECK (
@@ -26,33 +58,33 @@ CREATE TABLE IF NOT EXISTS payment_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_payment_events_reference_id
-  ON payment_events (reference_id);
+  ON public.payment_events (reference_id);
 CREATE INDEX IF NOT EXISTS idx_payment_events_type_created
-  ON payment_events (event_type, created_at DESC);
+  ON public.payment_events (event_type, created_at DESC);
 
-ALTER TABLE payment_events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE payment_events FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.payment_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payment_events FORCE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "service_role_all_payment_events" ON payment_events;
+DROP POLICY IF EXISTS "service_role_all_payment_events" ON public.payment_events;
 CREATE POLICY "service_role_all_payment_events"
-  ON payment_events
+  ON public.payment_events
   FOR ALL
   TO service_role
   USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
 
-REVOKE ALL ON TABLE payment_events FROM anon, authenticated;
-GRANT ALL ON TABLE payment_events TO service_role;
+REVOKE ALL ON TABLE public.payment_events FROM anon, authenticated;
+GRANT ALL ON TABLE public.payment_events TO service_role;
 
 -- Ensure required columns exist on payments, scheduled_messages, whatsapp_logs
 -- so views compile regardless of migration execution order
-ALTER TABLE payments
+ALTER TABLE public.payments
   ADD COLUMN IF NOT EXISTS expected_amount_cop numeric,
   ADD COLUMN IF NOT EXISTS currency text DEFAULT 'COP',
   ADD COLUMN IF NOT EXISTS state text,
   ADD COLUMN IF NOT EXISTS status text DEFAULT 'pending';
 
-ALTER TABLE scheduled_messages
+ALTER TABLE public.scheduled_messages
   ADD COLUMN IF NOT EXISTS scheduled_for timestamptz,
   ADD COLUMN IF NOT EXISTS payment_reference_id text,
   ADD COLUMN IF NOT EXISTS status text DEFAULT 'pending',
@@ -62,14 +94,15 @@ ALTER TABLE scheduled_messages
   ADD COLUMN IF NOT EXISTS locked_at timestamptz,
   ADD COLUMN IF NOT EXISTS last_error text;
 
-ALTER TABLE whatsapp_logs
+ALTER TABLE public.whatsapp_logs
   ADD COLUMN IF NOT EXISTS scheduled_message_id uuid,
   ADD COLUMN IF NOT EXISTS payment_reference_id text,
   ADD COLUMN IF NOT EXISTS error_code text,
   ADD COLUMN IF NOT EXISTS error_message text,
-  ADD COLUMN IF NOT EXISTS provider_status text;
+  ADD COLUMN IF NOT EXISTS provider_status text,
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 
--- 2. View: v_kpi_payment_funnel
+-- 3. View: v_kpi_payment_funnel
 CREATE OR REPLACE VIEW v_kpi_payment_funnel AS
 WITH payment_stats AS (
   SELECT
@@ -81,7 +114,7 @@ WITH payment_stats AS (
       WHERE LOWER(COALESCE(state, status, '')) IN ('success', 'approved', 'paid')
     )::int AS success_count,
     COUNT(*) FILTER (
-      WHERE LOWER(COALESCE(state, status, '')) = 'blocked'
+      WHERE LOWER(COALESCE(state, status, '')) IN ('blocked', 'gateway_blocked')
     )::int AS blocked_count,
     COUNT(*) FILTER (
       WHERE LOWER(COALESCE(state, status, '')) IN ('failed', 'rejected', 'error', 'cancelled')
@@ -101,7 +134,7 @@ WITH payment_stats AS (
       ),
       0
     )::numeric AS avg_ticket_cop
-  FROM payments
+  FROM public.payments
 )
 SELECT
   total_intents,
@@ -117,7 +150,7 @@ SELECT
   avg_ticket_cop
 FROM payment_stats;
 
--- 3. View: v_kpi_delivery_health
+-- 4. View: v_kpi_delivery_health
 CREATE OR REPLACE VIEW v_kpi_delivery_health AS
 WITH msg_stats AS (
   SELECT
@@ -146,7 +179,7 @@ WITH msg_stats AS (
       ),
       0
     )::numeric AS avg_send_latency_seconds
-  FROM scheduled_messages
+  FROM public.scheduled_messages
 ),
 log_stats AS (
   SELECT
@@ -157,7 +190,7 @@ log_stats AS (
     COUNT(*) FILTER (
       WHERE LOWER(COALESCE(provider_status, status, '')) IN ('failed', 'undelivered', 'error')
     )::int AS wa_failed_count
-  FROM whatsapp_logs
+  FROM public.whatsapp_logs
 )
 SELECT
   m.total_scheduled,
@@ -184,7 +217,7 @@ SELECT
 FROM msg_stats m
 CROSS JOIN log_stats l;
 
--- 4. View: v_kpi_daily_revenue
+-- 5. View: v_kpi_daily_revenue
 CREATE OR REPLACE VIEW v_kpi_daily_revenue AS
 SELECT
   DATE(created_at AT TIME ZONE 'America/Bogota') AS day,
@@ -193,7 +226,7 @@ SELECT
     WHERE LOWER(COALESCE(state, status, '')) IN ('success', 'approved', 'paid')
   )::int AS paid_orders,
   COUNT(*) FILTER (
-    WHERE LOWER(COALESCE(state, status, '')) IN ('failed', 'rejected', 'blocked', 'error', 'cancelled')
+    WHERE LOWER(COALESCE(state, status, '')) IN ('failed', 'rejected', 'blocked', 'gateway_blocked', 'error', 'cancelled')
   )::int AS failed_orders,
   COALESCE(
     SUM(COALESCE(expected_amount_cop, amount, 0)) FILTER (
@@ -210,7 +243,7 @@ SELECT
     ),
     0
   )::numeric AS conversion_rate_pct
-FROM payments
+FROM public.payments
 GROUP BY DATE(created_at AT TIME ZONE 'America/Bogota')
 ORDER BY day DESC;
 

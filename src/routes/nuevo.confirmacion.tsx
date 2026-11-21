@@ -5,7 +5,17 @@ import { StepHeader } from "@/components/StepHeader";
 import { StepFooter, StepShell } from "@/components/StepShell";
 import { getPaymentStatus } from "@/lib/bold";
 import { getPaymentStatusCopy, type PaymentState } from "@/lib/payment-status";
-import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, ShieldAlert } from "lucide-react";
+import { EdgeFunctionError } from "@/lib/supabase-functions";
+import { wizard } from "@/lib/wizard-store";
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  RefreshCw,
+  ShieldAlert,
+} from "lucide-react";
 import { z } from "zod";
 
 export const Route = createFileRoute("/nuevo/confirmacion")({
@@ -27,16 +37,30 @@ function PaymentConfirmation() {
   const [gatewayReason, setGatewayReason] = useState<string>();
   const [gatewayRaw, setGatewayRaw] = useState<Record<string, unknown>>();
   const [lastPolled, setLastPolled] = useState<Date | null>(null);
+  const [timedOut, setTimedOut] = useState(false);
 
   const statusRef = useRef<Status>("checking");
   const intervalRef = useRef<number | null>(null);
   const isMountedRef = useRef(true);
   const pollCountRef = useRef(0);
+  const consecutiveErrorsRef = useRef(0);
+  const wizardResetRef = useRef(false);
   const maxPolls = 40; // ~2 minutes at 3s interval
+
+  const stopPolling = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
 
   const updateStatus = useCallback((nextStatus: Status) => {
     statusRef.current = nextStatus;
     setStatus(nextStatus);
+    if (nextStatus === "success" && !wizardResetRef.current) {
+      wizardResetRef.current = true;
+      wizard.reset();
+    }
   }, []);
 
   const checkStatus = useCallback(async () => {
@@ -56,8 +80,17 @@ function PaymentConfirmation() {
         );
       }
 
-      const boldStatus = result?.boldStatus || result?.status || result?.state || "UNKNOWN";
-      const gwReason = result?.reason || result?.decline_reason || result?.error_message;
+      consecutiveErrorsRef.current = 0;
+
+      const boldStatus = String(result?.boldStatus || result?.status || result?.state || "UNKNOWN");
+      const gwReason =
+        typeof result?.reason === "string"
+          ? result.reason
+          : typeof result?.decline_reason === "string"
+            ? result.decline_reason
+            : typeof result?.error_message === "string"
+              ? result.error_message
+              : undefined;
       const gwRaw = result as Record<string, unknown>;
 
       setGatewayRaw(gwRaw);
@@ -68,34 +101,73 @@ function PaymentConfirmation() {
       updateStatus(copy.state);
       if (copy.errorCode) setError(copy.errorCode);
 
-      // Stop polling on terminal states
+      // Stop polling on terminal states or maxPolls timeout
       const isTerminal =
         copy.state === "success" || copy.state === "failure" || copy.state === "gateway_blocked";
-      if (isTerminal || pollCountRef.current >= maxPolls) {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
+      if (isTerminal) {
+        setTimedOut(false);
+        stopPolling();
+      } else if (pollCountRef.current >= maxPolls) {
+        setTimedOut(true);
+        stopPolling();
       }
     } catch (err: unknown) {
       if (!isMountedRef.current) return;
       const msg = err instanceof Error ? err.message : "Error verificando pago";
+      const errStatus = err instanceof EdgeFunctionError ? err.status : undefined;
       const currentStatus = statusRef.current;
-      // Don't override if we already reached a terminal state from a previous poll
-      if (
-        currentStatus !== "success" &&
-        currentStatus !== "failure" &&
-        currentStatus !== "gateway_blocked"
-      ) {
-        updateStatus("failure");
-        setError(msg);
+
+      // Fail fast only on 400 (bad request) or after >=3 consecutive errors
+      if (errStatus === 400) {
+        if (
+          currentStatus !== "success" &&
+          currentStatus !== "failure" &&
+          currentStatus !== "gateway_blocked"
+        ) {
+          updateStatus("failure");
+          setError(msg);
+        }
+        stopPolling();
+        return;
       }
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
+
+      consecutiveErrorsRef.current += 1;
+      if (consecutiveErrorsRef.current >= 3) {
+        if (
+          currentStatus !== "success" &&
+          currentStatus !== "failure" &&
+          currentStatus !== "gateway_blocked"
+        ) {
+          updateStatus("failure");
+          setError(msg);
+        }
+        stopPolling();
+        return;
+      }
+
+      if (pollCountRef.current >= maxPolls) {
+        setTimedOut(true);
+        stopPolling();
       }
     }
-  }, [payment_id, updateStatus]);
+  }, [payment_id, stopPolling, updateStatus]);
+
+  const startPolling = useCallback(() => {
+    stopPolling();
+    pollCountRef.current = 0;
+    consecutiveErrorsRef.current = 0;
+    setTimedOut(false);
+    setError(undefined);
+
+    checkStatus();
+
+    intervalRef.current = window.setInterval(() => {
+      const current = statusRef.current;
+      if (current === "pending" || current === "checking") {
+        checkStatus();
+      }
+    }, 3000);
+  }, [checkStatus, stopPolling]);
 
   useEffect(() => {
     if (!payment_id) {
@@ -105,27 +177,13 @@ function PaymentConfirmation() {
     }
 
     isMountedRef.current = true;
-    pollCountRef.current = 0;
-
-    // Initial check
-    checkStatus();
-
-    // Poll every 3 seconds while pending
-    intervalRef.current = window.setInterval(() => {
-      const current = statusRef.current;
-      if (current === "pending" || current === "checking") {
-        checkStatus();
-      }
-    }, 3000);
+    startPolling();
 
     return () => {
       isMountedRef.current = false;
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+      stopPolling();
     };
-  }, [payment_id, checkStatus, updateStatus]);
+  }, [payment_id, startPolling, stopPolling, updateStatus]);
 
   const copy = getPaymentStatusCopy(status, error, gatewayReason);
   const isPending = status === "checking" || status === "pending";
@@ -145,7 +203,8 @@ function PaymentConfirmation() {
       <main className="mt-8 flex justify-center">
         <div className="w-full max-w-xl rounded-2xl border bg-card p-6 shadow-sm">
           <div className="flex flex-col items-center gap-4 py-8 text-center">
-            {isPending && <Loader2 className="h-12 w-12 animate-spin text-primary" />}
+            {isPending && !timedOut && <Loader2 className="h-12 w-12 animate-spin text-primary" />}
+            {isPending && timedOut && <Clock className="h-12 w-12 text-amber-500" />}
             {status === "success" && <CheckCircle2 className="h-12 w-12 text-emerald-500" />}
             {status === "failure" && !isPending && !isGatewayBlocked && (
               <AlertCircle className="h-12 w-12 text-red-500" />
@@ -153,8 +212,14 @@ function PaymentConfirmation() {
             {isGatewayBlocked && <ShieldAlert className="h-12 w-12 text-amber-500" />}
 
             <div>
-              <h2 className="text-xl font-semibold">{copy.title}</h2>
-              <p className="mt-2 text-sm text-muted-foreground">{copy.message}</p>
+              <h2 className="text-xl font-semibold">
+                {isPending && timedOut ? "Aún estamos esperando confirmación" : copy.title}
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {isPending && timedOut
+                  ? "La pasarela está tardando más de lo habitual. Puedes verificar manualmente ahora."
+                  : copy.message}
+              </p>
               {copy.errorCode && (
                 <p className="mt-2 text-xs text-muted-foreground">Código: {copy.errorCode}</p>
               )}
@@ -175,6 +240,17 @@ function PaymentConfirmation() {
                 </div>
               )}
             </div>
+
+            {isPending && timedOut && (
+              <button
+                type="button"
+                onClick={startPolling}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Verificar ahora
+              </button>
+            )}
 
             {(status === "failure" || isGatewayBlocked) && !isPending && (
               <Link

@@ -2,7 +2,12 @@ import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Loader2, Lock, Mail, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { adminLogin, getAdminSession, verifyAdminSession } from "@/lib/admin-auth";
+import {
+  adminLogin,
+  getAdminSession,
+  hasStoredAdminSession,
+  verifyAdminSession,
+} from "@/lib/admin-auth";
 import { StepShell } from "@/components/StepShell";
 
 export const Route = createFileRoute("/admin/login")({
@@ -19,6 +24,9 @@ function AdminLogin() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getAdminSession()));
 
   useEffect(() => {
+    if (!hasStoredAdminSession()) {
+      return;
+    }
     let active = true;
     verifyAdminSession().then((user) => {
       if (active && user) {

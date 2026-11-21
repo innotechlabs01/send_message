@@ -9,9 +9,15 @@ import { cn } from "@/lib/utils";
 import { cleanPhoneDigits } from "@/lib/phone";
 
 export function getStartOfToday(): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const bogotaDateStr = formatter.format(new Date()); // YYYY-MM-DD
+  const [year, month, day] = bogotaDateStr.split("-").map(Number);
+  return new Date(year, month - 1, day, 0, 0, 0, 0);
 }
 
 export const messageDetailsSchema = z.object({
@@ -20,11 +26,17 @@ export const messageDetailsSchema = z.object({
   phoneFrom: z
     .string()
     .trim()
-    .refine((v) => cleanPhoneDigits(v).length === 10, "Celular debe tener 10 dígitos"),
+    .refine(
+      (v) => /^3\d{9}$/.test(cleanPhoneDigits(v)),
+      "Celular debe tener 10 dígitos y comenzar por 3 (ej: 300 123 4567)",
+    ),
   phoneTo: z
     .string()
     .trim()
-    .refine((v) => cleanPhoneDigits(v).length === 10, "Celular debe tener 10 dígitos"),
+    .refine(
+      (v) => /^3\d{9}$/.test(cleanPhoneDigits(v)),
+      "Celular debe tener 10 dígitos y comenzar por 3 (ej: 300 123 4567)",
+    ),
   sendDate: z
     .string({ required_error: "Selecciona una fecha" })
     .min(1, "Selecciona una fecha")

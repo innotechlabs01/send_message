@@ -46,49 +46,8 @@ $$;
 
 REVOKE ALL ON FUNCTION public.get_cron_auth_headers() FROM PUBLIC, anon, authenticated;
 
--- Cleanup mensajes expirados: 6 AM Colombia = 11:00 UTC
-SELECT cron.schedule('cleanup-expired-messages', '0 11 * * *', $cron$
-  SELECT net.http_post(
-    url := 'https://pazykgddlrbbplvwiizr.supabase.co/functions/v1/cleanup-expired',
-    headers := public.get_cron_auth_headers(),
-    body := jsonb_build_object('scheduled', true)
-  );
-$cron$);
-
--- Envío SMS pendientes: 6 AM Colombia = 11:00 UTC
-SELECT cron.schedule('send-messages-morning', '0 11 * * *', $cron$
-  SELECT net.http_post(
-    url := 'https://pazykgddlrbbplvwiizr.supabase.co/functions/v1/send-messages',
-    headers := public.get_cron_auth_headers(),
-    body := '{}'::jsonb
-  );
-$cron$);
-
--- Envío SMS pendientes: 6 PM Colombia = 23:00 UTC
-SELECT cron.schedule('send-messages-evening', '0 23 * * *', $cron$
-  SELECT net.http_post(
-    url := 'https://pazykgddlrbbplvwiizr.supabase.co/functions/v1/send-messages',
-    headers := public.get_cron_auth_headers(),
-    body := '{}'::jsonb
-  );
-$cron$);
-
--- Recordatorios: 9 AM UTC
-SELECT cron.schedule('send-reminders-daily', '0 9 * * *', $cron$
-  SELECT net.http_post(
-    url := 'https://pazykgddlrbbplvwiizr.supabase.co/functions/v1/send-reminders',
-    headers := public.get_cron_auth_headers(),
-    body := '{}'::jsonb
-  );
-$cron$);
-
--- Retry queue: cada 15 minutos
-SELECT cron.schedule('process-retry-queue', '*/15 * * * *', $cron$
-  SELECT process_retry_queue();
-$cron$);
-
--- Envío programado cada 6 horas (mensajes no enviados)
-SELECT cron.schedule('send-scheduled-messages', '0 */6 * * *', $cron$
+-- Envío programado cada 5 minutos (mensajes debidos y reintentos)
+SELECT cron.schedule('send-scheduled-messages', '*/5 * * * *', $cron$
   SELECT net.http_post(
     url := 'https://pazykgddlrbbplvwiizr.supabase.co/functions/v1/send-scheduled-messages',
     headers := public.get_cron_auth_headers(),

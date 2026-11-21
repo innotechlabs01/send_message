@@ -16,6 +16,15 @@ function resolveAllowedOrigins(): string[] {
       .map((o) => o.trim())
       .filter((o) => o.length > 0);
   }
+  const appUrl = Deno.env.get("APP_URL")?.trim();
+  if (appUrl) {
+    const origins = [...DEFAULT_DEV_ORIGINS, appUrl];
+    const stripped = appUrl.replace(/\/+$/, "");
+    if (!origins.includes(stripped)) {
+      origins.push(stripped);
+    }
+    return Array.from(new Set(origins));
+  }
   return DEFAULT_DEV_ORIGINS;
 }
 

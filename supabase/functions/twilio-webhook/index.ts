@@ -126,7 +126,8 @@ function buildCandidateUrls(req: Request): string[] {
   return Array.from(urls);
 }
 
-Deno.serve(async (req) => {
+if (import.meta.main) {
+  Deno.serve(async (req) => {
   const preflight = handleCorsPreflight(req);
   if (preflight) return preflight;
 
@@ -176,7 +177,7 @@ Deno.serve(async (req) => {
 
     const { data: existingLogs, error: fetchErr } = await supabase
       .from("whatsapp_logs")
-      .select("id, status, provider_status")
+      .select("id, status, provider_status, scheduled_message_id")
       .eq("wa_message_id", messageSid)
       .limit(1);
 
@@ -208,6 +209,23 @@ Deno.serve(async (req) => {
       if (updateErr) {
         throw updateErr;
       }
+
+      // If Twilio reports async failure/undelivered, sync scheduled_messages row
+      const isTerminalFailure = normalizedStatus === "failed" || normalizedStatus === "undelivered";
+      if (isTerminalFailure && existing.scheduled_message_id) {
+        const failureReason = errorMessage || (errorCode ? `Twilio error code: ${errorCode}` : `Twilio status: ${rawStatus}`);
+        const { error: smUpdateErr } = await supabase
+          .from("scheduled_messages")
+          .update({
+            status: "failed",
+            last_error: failureReason.slice(0, 500),
+          })
+          .eq("id", existing.scheduled_message_id);
+
+        if (smUpdateErr) {
+          console.error("[twilio-webhook] Failed to update scheduled_messages for failed delivery:", smUpdateErr);
+        }
+      }
     } else {
       // Fallback insert if callback arrives before initial row or for external message
       const { error: insertErr } = await supabase.from("whatsapp_logs").insert({
@@ -230,3 +248,4 @@ Deno.serve(async (req) => {
     return safeErrorResponse(error, corsHeaders, 500);
   }
 });
+}

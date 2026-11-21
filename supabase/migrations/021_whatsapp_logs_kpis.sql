@@ -20,6 +20,18 @@ ALTER TABLE public.whatsapp_logs
   ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 
 ALTER TABLE public.whatsapp_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.whatsapp_logs FORCE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.whatsapp_logs FROM anon, authenticated;
+GRANT ALL ON public.whatsapp_logs TO service_role;
+
+DROP POLICY IF EXISTS "service_role_all_whatsapp_logs" ON public.whatsapp_logs;
+CREATE POLICY "service_role_all_whatsapp_logs"
+  ON public.whatsapp_logs
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
 
 CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_wa_message_id
   ON public.whatsapp_logs (wa_message_id);

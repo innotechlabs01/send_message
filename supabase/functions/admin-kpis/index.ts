@@ -1,10 +1,8 @@
 import { z } from "https://deno.land/x/zod@v3.24.2/mod.ts";
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createServiceClient, verifyHmacSha256Hex } from "../_shared/auth.ts";
+import { createServiceClient } from "../_shared/auth.ts";
+import { verifyAdminSession } from "../_shared/admin-session.ts";
 import { getCorsHeaders, handleCorsPreflight, type CorsOptions } from "../_shared/cors.ts";
 import { jsonResponse, safeErrorResponse } from "../_shared/http.ts";
-
-const ADMIN_SESSION_COOKIE = "admin_session";
 
 const CORS_OPTIONS: CorsOptions = {
   credentials: true,
@@ -29,77 +27,6 @@ const retrySchema = z.object({
 });
 
 const kpiPayloadSchema = z.union([retrySchema, overviewSchema]);
-
-interface SessionTokenPayload {
-  id: string;
-  email: string;
-  name: string | null;
-  iat: number;
-  exp: number;
-}
-
-function getSessionSecret(): string {
-  const secret = Deno.env.get("ADMIN_SESSION_SECRET");
-  if (!secret || secret.trim().length < 16) {
-    throw new Error("ADMIN_SESSION_SECRET must be configured with at least 16 characters");
-  }
-  return secret;
-}
-
-function extractRawSessionToken(req: Request): string | null {
-  const headerToken = req.headers.get("x-admin-token")?.trim();
-  if (headerToken) {
-    return headerToken;
-  }
-  const cookie = req.headers.get("cookie") ?? req.headers.get("Cookie") ?? "";
-  const match = cookie.match(new RegExp(`(?:^|;\\s*)${ADMIN_SESSION_COOKIE}=([^;]+)`));
-  return match ? match[1].trim() : null;
-}
-
-async function verifyAdminSession(
-  req: Request,
-  adminSupabase: SupabaseClient,
-): Promise<{ id: string; email: string; name: string | null } | null> {
-  const rawToken = extractRawSessionToken(req);
-  if (!rawToken) return null;
-
-  const parts = rawToken.split(".");
-  if (parts.length !== 2) return null;
-
-  const [payloadB64, signatureHex] = parts;
-  if (!payloadB64 || !signatureHex) return null;
-
-  const secret = getSessionSecret();
-  const validSig = await verifyHmacSha256Hex(secret, payloadB64, signatureHex);
-  if (!validSig) return null;
-
-  try {
-    const decoded = JSON.parse(atob(payloadB64)) as Partial<SessionTokenPayload>;
-    if (
-      !decoded ||
-      typeof decoded.id !== "string" ||
-      typeof decoded.email !== "string" ||
-      typeof decoded.exp !== "number" ||
-      decoded.exp <= Date.now()
-    ) {
-      return null;
-    }
-
-    const { data: admin, error } = await adminSupabase
-      .from("admin_users")
-      .select("id, email, name")
-      .eq("id", decoded.id)
-      .single();
-
-    if (error || !admin) {
-      return null;
-    }
-
-    return { id: admin.id, email: admin.email, name: admin.name };
-  } catch {
-    return null;
-  }
-}
 
 Deno.serve(async (req) => {
   const preflight = handleCorsPreflight(req, CORS_OPTIONS);
@@ -203,6 +130,23 @@ Deno.serve(async (req) => {
           .order("created_at", { ascending: false })
           .limit(25),
       ]);
+
+    // Check .error on all 5 queries and return 500 on DB failure
+    const dbError =
+      funnelRes.error ||
+      deliveryRes.error ||
+      dailyRes.error ||
+      failedQueueRes.error ||
+      recentPaymentsRes.error;
+
+    if (dbError) {
+      console.error("[admin-kpis] Database query error:", dbError);
+      return jsonResponse(
+        { error: "Error consultando base de datos para KPIs" },
+        500,
+        corsHeaders,
+      );
+    }
 
     const paymentFunnel = funnelRes.data ?? {
       total_intents: 0,

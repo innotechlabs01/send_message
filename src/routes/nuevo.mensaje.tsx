@@ -28,77 +28,103 @@ function MessageStep() {
   const [source, setSource] = useState<MessageSource>("db");
   const [offset, setOffset] = useState(0);
   const [aiSeed, setAiSeed] = useState(0);
-  const [hasMoreDb, setHasMoreDb] = useState(true);
+  const [totalDb, setTotalDb] = useState<number | null>(null);
   const [lastDbMessages, setLastDbMessages] = useState<string[]>([]);
 
   // Cargar mensajes (BD o IA)
-  const loadMessages = useCallback(async () => {
-    if (!category) return;
-    setLoading(true);
-    try {
-      if (source === "db") {
-        // Cargar desde BD
-        const { data, error } = await supabase.functions.invoke("get-predefined-messages", {
-          body: { category: category.id, offset, limit: PAGE_SIZE },
-        });
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
+  const loadMessages = useCallback(
+    async (
+      currentSource: MessageSource,
+      currentOffset: number,
+      currentAiSeed: number,
+      currentExamples: string[],
+    ) => {
+      if (!category) return;
+      setLoading(true);
+      try {
+        if (currentSource === "db") {
+          // Cargar desde BD
+          const { data, error } = await supabase.functions.invoke("get-predefined-messages", {
+            body: { category: category.id, offset: currentOffset, limit: PAGE_SIZE },
+          });
+          if (error) throw error;
+          if (data?.error) throw new Error(data.error);
 
-        const newMessages = data?.messages ?? [];
-        const hasMore = data?.hasMore ?? false;
+          const newMessages: string[] = data?.messages ?? [];
+          const hasMore = Boolean(data?.hasMore);
+          const total = typeof data?.total === "number" ? data.total : 0;
+          setTotalDb(total);
 
-        // Agregar mensajes nuevos a los existentes (no reemplazar si hay anclados)
-        setMessages((prev) => {
-          const combined = [...prev, ...newMessages];
-          // Eliminar duplicados manteniendo orden
-          return Array.from(new Set(combined));
-        });
-        setHasMoreDb(hasMore);
-        setOffset((prev) => prev + PAGE_SIZE);
+          if (newMessages.length > 0) {
+            setMessages(newMessages);
+            setLastDbMessages(newMessages);
+            setOffset(currentOffset + PAGE_SIZE);
+          }
 
-        // Guardar últimos mensajes de BD para few-shot en IA
-        if (newMessages.length > 0) {
-          setLastDbMessages(newMessages);
-        }
+          if (!hasMore) {
+            setSource("ai");
+            setAiSeed(0);
+            // If DB returned zero messages on initial/refresh load, immediately invoke generate-message as fallback
+            if (newMessages.length === 0) {
+              toast.info("Generando nuevos mensajes con IA...", { duration: 2000 });
+              const { data: aiData, error: aiErr } = await supabase.functions.invoke(
+                "generate-message",
+                {
+                  body: {
+                    category: category.label,
+                    seed: 0,
+                    examples: currentExamples.length > 0 ? currentExamples.slice(-5) : undefined,
+                  },
+                },
+              );
+              if (aiErr) throw aiErr;
+              if (aiData?.error) throw new Error(aiData.error);
 
-        // Si no hay más en BD, cambiar a IA
-        if (!hasMore) {
-          setSource("ai");
-          setAiSeed(0);
+              const aiMessages: string[] = aiData?.messages ?? [];
+              setMessages(aiMessages);
+              setAiSeed(1);
+            }
+          }
+        } else {
+          // Generar con IA (usando últimos mensajes BD como ejemplos)
           toast.info("Generando nuevos mensajes con IA...", { duration: 2000 });
-        }
-      } else {
-        // Generar con IA (usando últimos mensajes BD como ejemplos)
-        const { data, error } = await supabase.functions.invoke("generate-message", {
-          body: {
-            category: category.label,
-            seed: aiSeed,
-            examples: lastDbMessages.length > 0 ? lastDbMessages.slice(-5) : undefined,
-          },
-        });
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
+          const { data, error } = await supabase.functions.invoke("generate-message", {
+            body: {
+              category: category.label,
+              seed: currentAiSeed,
+              examples: currentExamples.length > 0 ? currentExamples.slice(-5) : undefined,
+            },
+          });
+          if (error) throw error;
+          if (data?.error) throw new Error(data.error);
 
-        const newMessages = data?.messages ?? [];
-        setMessages((prev) => {
-          const combined = [...prev, ...newMessages];
-          return Array.from(new Set(combined));
-        });
-        setAiSeed((prev) => prev + 1);
+          const newMessages: string[] = data?.messages ?? [];
+          setMessages(newMessages);
+          setAiSeed(currentAiSeed + 1);
+        }
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "No fue posible cargar los mensajes";
+        toast.error(msg);
+      } finally {
+        setLoading(false);
       }
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "No fue posible cargar los mensajes";
-      toast.error(msg);
-    } finally {
-      setLoading(false);
-    }
-  }, [category, source, offset, aiSeed, lastDbMessages]);
+    },
+    [category],
+  );
 
   // Carga inicial
   useEffect(() => {
-    if (category) loadMessages();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category?.id]);
+    if (category) {
+      setMessages([]);
+      setPinned([]);
+      setSource("db");
+      setOffset(0);
+      setAiSeed(0);
+      setTotalDb(null);
+      setLastDbMessages([]);
+      void loadMessages("db", 0, 0, []);
+    }
+  }, [category, loadMessages]);
 
   if (!state.hydrated) return <StepShell withFooter />;
   if (!category) return <Navigate to="/nuevo/categoria" />;
@@ -120,7 +146,7 @@ function MessageStep() {
   }
 
   function handleRefresh() {
-    loadMessages();
+    void loadMessages(source, offset, aiSeed, lastDbMessages);
   }
 
   // Filtrar mensajes: anclados + frescos (hasta TOTAL_SLOTS)
@@ -156,9 +182,9 @@ function MessageStep() {
             </span>
           )}
         </div>
-        {source === "db" && offset > 0 && (
+        {source === "db" && offset > 0 && totalDb !== null && totalDb > 0 && (
           <span className="text-xs text-muted-foreground">
-            Mostrando {Math.min(offset, messages.length)} de {messages.length} mensajes
+            Mostrando {Math.min(offset, totalDb)} de {totalDb} mensajes
           </span>
         )}
       </div>
@@ -171,7 +197,7 @@ function MessageStep() {
           <div className="space-y-3">
             {pinned.map((m, i) => (
               <MessageItem
-                key={`p-${i}`}
+                key={`pinned-${m}`}
                 index={i + 1}
                 message={m}
                 pinned
@@ -193,7 +219,7 @@ function MessageStep() {
             ))
           : freshMessages.map((m, i) => (
               <MessageItem
-                key={`${source}-${offset}-${i}`}
+                key={m}
                 index={i + 1 + pinned.length}
                 message={m}
                 onPick={() => pick(m)}

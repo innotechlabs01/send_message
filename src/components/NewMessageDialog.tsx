@@ -119,7 +119,7 @@ export function NewMessageDialog({
           const hasMore = Boolean(data?.hasMore);
 
           if (newMessages.length > 0) {
-            setMessages((prev) => Array.from(new Set([...prev, ...newMessages])));
+            setMessages(newMessages);
             setLastDbMessages(newMessages);
             setOffset(currentOffset + PAGE_SIZE);
           }
@@ -129,6 +129,7 @@ export function NewMessageDialog({
             setAiSeed(0);
             // If DB returned zero messages on initial load, fall back immediately to AI generation
             if (newMessages.length === 0) {
+              toast.info("Generando nuevos mensajes con IA...", { duration: 2000 });
               const { data: aiData, error: aiErr } = await supabase.functions.invoke(
                 "generate-message",
                 {
@@ -142,13 +143,12 @@ export function NewMessageDialog({
               if (aiErr) throw aiErr;
               if (aiData?.error) throw new Error(aiData.error);
               const aiMessages: string[] = aiData?.messages ?? [];
-              setMessages((prev) => Array.from(new Set([...prev, ...aiMessages])));
+              setMessages(aiMessages);
               setAiSeed(1);
-            } else {
-              toast.info("Generando nuevos mensajes con IA...", { duration: 2000 });
             }
           }
         } else {
+          toast.info("Generando nuevos mensajes con IA...", { duration: 2000 });
           const { data, error } = await supabase.functions.invoke("generate-message", {
             body: {
               category: cat.label,
@@ -160,7 +160,7 @@ export function NewMessageDialog({
           if (data?.error) throw new Error(data.error);
 
           const newMessages: string[] = data?.messages ?? [];
-          setMessages((prev) => Array.from(new Set([...prev, ...newMessages])));
+          setMessages(newMessages);
           setAiSeed(currentAiSeed + 1);
         }
       } catch (e: unknown) {
@@ -332,9 +332,9 @@ export function NewMessageDialog({
                     <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground mb-2">
                       <Pin className="w-3.5 h-3.5" /> Anclados ({pinned.length}/{MAX_PINNED})
                     </div>
-                    {pinned.map((m, i) => (
+                    {pinned.map((m) => (
                       <MessageOptionCard
-                        key={`p-${i}`}
+                        key={`pinned-${m}`}
                         message={m}
                         pinned
                         compact
@@ -354,9 +354,9 @@ export function NewMessageDialog({
                         <div className="absolute inset-0 animate-shimmer" />
                       </div>
                     ))
-                  : fresh.map((m, i) => (
+                  : fresh.map((m) => (
                       <MessageOptionCard
-                        key={`${source}-${offset}-${aiSeed}-${i}`}
+                        key={m}
                         message={m}
                         compact
                         onSelect={() => pickMessage(m)}

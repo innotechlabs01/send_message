@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import * as LucideIcons from "lucide-react";
 import {
   ArrowRight,
@@ -50,6 +50,19 @@ function CartStep() {
   const [editing, setEditing] = useState<CartItem | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<CartItem | null>(null);
 
+  useEffect(() => {
+    if (search.nuevo === "1") {
+      setDialogOpen(true);
+    }
+  }, [search.nuevo]);
+
+  function handleDialogOpenChange(open: boolean) {
+    setDialogOpen(open);
+    if (!open) {
+      navigate({ to: "/nuevo/carrito", search: {}, replace: true });
+    }
+  }
+
   if (!state.hydrated) return <StepShell withFooter />;
 
   const items = state.items;
@@ -90,7 +103,7 @@ function CartStep() {
             : "Tu carrito está vacío"
         }
         subtitle="Revisa, edita o agrega más mensajes antes de pagar."
-        backTo="/nuevo/confirmar"
+        backTo="/nuevo/categoria"
       />
 
       {items.length === 0 ? (
@@ -129,7 +142,11 @@ function CartStep() {
         </button>
       </StepFooter>
 
-      <NewMessageDialog open={dialogOpen} onOpenChange={setDialogOpen} editingItem={editing} />
+      <NewMessageDialog
+        open={dialogOpen}
+        onOpenChange={handleDialogOpenChange}
+        editingItem={editing}
+      />
 
       <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
         <AlertDialogContent>

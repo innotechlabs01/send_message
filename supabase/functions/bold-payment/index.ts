@@ -2,9 +2,15 @@ import { z } from "https://deno.land/x/zod@v3.24.2/mod.ts";
 import { getCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
 import { jsonResponse, safeErrorResponse } from "../_shared/http.ts";
 import { createServiceClient, signHmacSha256Hex } from "../_shared/auth.ts";
+import { checkUpstashRateLimit, getClientIp } from "../_shared/rate-limit.ts";
 
 export const PRICE_PER_MESSAGE = 4990; // COP
 export const CURRENCY = "COP";
+
+const referenceIdSchema = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z0-9_-]{3,120}$/, "Invalid referenceId format");
 
 const cartItemSchema = z.object({
   id: z.string().trim().max(120).optional(),
@@ -29,7 +35,7 @@ const customerSchema = z
 
 const createIntentSchema = z.object({
   action: z.literal("create-payment-intent"),
-  referenceId: z.string().trim().min(3).max(120),
+  referenceId: referenceIdSchema,
   idempotencyKey: z.string().uuid().optional(),
   amount: z.number().int().positive().optional(),
   description: z.string().trim().max(255).optional(),
@@ -40,7 +46,7 @@ const createIntentSchema = z.object({
 
 const getStatusSchema = z.object({
   action: z.literal("get-payment-status"),
-  referenceId: z.string().trim().min(3).max(120),
+  referenceId: referenceIdSchema,
 });
 
 const checkExistingSchema = z.object({
@@ -55,10 +61,37 @@ export function computeExpectedAmountCop(itemCount: number): number {
   return itemCount * PRICE_PER_MESSAGE;
 }
 
-export function buildCartSignature(items: PaymentCartItem[]): string {
-  return items
-    .map((item) => `${item.categoryId}-${item.recipientName}-${item.recipientPhone}-${item.sendDate}`)
-    .join("|");
+function fnv1a32(input: string, seed = 0x811c9dc5): string {
+  let hash = seed >>> 0;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
+function djb2_32(input: string): string {
+  let hash = 5381;
+  for (let i = 0; i < input.length; i++) {
+    hash = (Math.imul(hash, 33) ^ input.charCodeAt(i)) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
+export function buildCartSignature(
+  items: Array<PaymentCartItem & { occasion?: string; scheduledAt?: string }>,
+): string {
+  const canonical = items.map((item) => ({
+    occasion: (item.occasion ?? item.categoryId ?? "").trim(),
+    messageText: (item.messageText ?? "").trim(),
+    recipientName: (item.recipientName ?? "").trim(),
+    recipientPhone: (item.recipientPhone ?? "").trim(),
+    senderName: (item.senderName ?? "").trim(),
+    senderPhone: (item.senderPhone ?? "").trim(),
+    scheduledAt: (item.scheduledAt ?? item.sendDate ?? "").trim(),
+  }));
+  const serialized = JSON.stringify(canonical);
+  return `v2_${fnv1a32(serialized)}${djb2_32(serialized)}`;
 }
 
 function appendReferenceToCallback(callbackUrl: string, referenceId: string): string {
@@ -85,6 +118,12 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const ip = getClientIp(req);
+    const rateLimit = await checkUpstashRateLimit(`rl:bold-payment:${ip}`, 30, 60);
+    if (!rateLimit.allowed) {
+      return jsonResponse({ error: "Too many requests" }, 429, corsHeaders);
+    }
+
     const rawBody = await req.json();
 
     // Normalize legacy single-item payload into items[] if needed
@@ -140,12 +179,34 @@ Deno.serve(async (req: Request) => {
       const cartSignature = buildCartSignature(data.items);
       const callbackWithRef = appendReferenceToCallback(data.callbackUrl, data.referenceId);
 
-      // Idempotency lookup: if payment already exists for idempotency_key or reference_id, return existing
-      const { data: existingRows } = await supabase
+      // Idempotency lookup: separate .eq() queries (no PostgREST .or() string interpolation)
+      const { data: byIdem, error: idemErr } = await supabase
         .from("payments")
-        .select("reference_id, idempotency_key, amount, expected_amount_cop, currency, state, status, bold_response")
-        .or(`idempotency_key.eq.${idempotencyKey},reference_id.eq.${data.referenceId}`)
+        .select(
+          "reference_id, idempotency_key, amount, expected_amount_cop, currency, state, status, bold_response",
+        )
+        .eq("idempotency_key", idempotencyKey)
         .limit(1);
+
+      if (idemErr) {
+        return safeErrorResponse(idemErr, corsHeaders, 500);
+      }
+
+      let existingRows = byIdem;
+      if (!existingRows || existingRows.length === 0) {
+        const { data: byRef, error: refErr } = await supabase
+          .from("payments")
+          .select(
+            "reference_id, idempotency_key, amount, expected_amount_cop, currency, state, status, bold_response",
+          )
+          .eq("reference_id", data.referenceId)
+          .limit(1);
+
+        if (refErr) {
+          return safeErrorResponse(refErr, corsHeaders, 500);
+        }
+        existingRows = byRef;
+      }
 
       if (existingRows && existingRows.length > 0) {
         const existing = existingRows[0];
@@ -258,6 +319,30 @@ Deno.serve(async (req: Request) => {
         return safeErrorResponse(new Error("Failed to store payment order"), corsHeaders, 500);
       }
 
+      try {
+        await supabase.from("payment_events").insert([
+          {
+            reference_id: data.referenceId,
+            event_type: "intent",
+            amount_cop: expectedAmountCop,
+            currency: CURRENCY,
+            metadata: { itemCount: data.items.length, idempotencyKey },
+          },
+          {
+            reference_id: data.referenceId,
+            event_type: "pending",
+            amount_cop: expectedAmountCop,
+            currency: CURRENCY,
+            metadata: {
+              paymentLink:
+                typeof innerPayload.payment_link === "string" ? innerPayload.payment_link : null,
+            },
+          },
+        ]);
+      } catch (eventErr) {
+        console.warn("[bold-payment] Failed to insert payment_events:", eventErr);
+      }
+
       return jsonResponse(
         {
           referenceId: data.referenceId,
@@ -282,7 +367,7 @@ Deno.serve(async (req: Request) => {
         .from("payments")
         .select("reference_id, state, bold_status, status, gateway_reason, created_at")
         .eq("gateway_raw->>cartSignature", parsed.data.cartSignature)
-        .in("state", ["pending", "failure", "gateway_blocked"])
+        .in("state", ["pending", "success", "failure", "gateway_blocked"])
         .order("created_at", { ascending: false })
         .limit(1);
 

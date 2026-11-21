@@ -14,6 +14,7 @@ export type Database = {
           email: string;
           id: string;
           name: string | null;
+          password_changed_at: string | null;
           password_hash: string;
           updated_at: string | null;
         };
@@ -22,6 +23,7 @@ export type Database = {
           email: string;
           id?: string;
           name?: string | null;
+          password_changed_at?: string | null;
           password_hash: string;
           updated_at?: string | null;
         };
@@ -30,6 +32,7 @@ export type Database = {
           email?: string;
           id?: string;
           name?: string | null;
+          password_changed_at?: string | null;
           password_hash?: string;
           updated_at?: string | null;
         };
@@ -39,11 +42,15 @@ export type Database = {
         Row: {
           amount: number;
           bold_response: Json | null;
+          bold_status: string | null;
           created_at: string;
           currency: string;
+          expected_amount_cop: number;
           gateway_raw: Json | null;
           gateway_reason: string | null;
           id: string;
+          idempotency_key: string | null;
+          items_json: Json;
           message_id: string | null;
           payment_method: string | null;
           reference_id: string;
@@ -55,11 +62,15 @@ export type Database = {
         Insert: {
           amount: number;
           bold_response?: Json | null;
+          bold_status?: string | null;
           created_at?: string;
           currency?: string;
+          expected_amount_cop?: number;
           gateway_raw?: Json | null;
           gateway_reason?: string | null;
           id?: string;
+          idempotency_key?: string | null;
+          items_json?: Json;
           message_id?: string | null;
           payment_method?: string | null;
           reference_id: string;
@@ -71,11 +82,15 @@ export type Database = {
         Update: {
           amount?: number;
           bold_response?: Json | null;
+          bold_status?: string | null;
           created_at?: string;
           currency?: string;
+          expected_amount_cop?: number;
           gateway_raw?: Json | null;
           gateway_reason?: string | null;
           id?: string;
+          idempotency_key?: string | null;
+          items_json?: Json;
           message_id?: string | null;
           payment_method?: string | null;
           reference_id?: string;
@@ -83,6 +98,39 @@ export type Database = {
           status?: string;
           transaction_id?: string | null;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      payment_events: {
+        Row: {
+          amount_cop: number | null;
+          created_at: string;
+          currency: string;
+          event_type: string;
+          id: string;
+          metadata: Json;
+          payment_method: string | null;
+          reference_id: string;
+        };
+        Insert: {
+          amount_cop?: number | null;
+          created_at?: string;
+          currency?: string;
+          event_type: string;
+          id?: string;
+          metadata?: Json;
+          payment_method?: string | null;
+          reference_id: string;
+        };
+        Update: {
+          amount_cop?: number | null;
+          created_at?: string;
+          currency?: string;
+          event_type?: string;
+          id?: string;
+          metadata?: Json;
+          payment_method?: string | null;
+          reference_id?: string;
         };
         Relationships: [];
       };
@@ -112,29 +160,59 @@ export type Database = {
       };
       scheduled_messages: {
         Row: {
+          attempts: number;
           created_at: string;
           id: string;
+          idempotency_key: string | null;
+          last_error: string | null;
+          locked_at: string | null;
+          max_attempts: number;
+          next_retry_at: string | null;
+          payment_reference_id: string | null;
+          scheduled_for: string;
           sender_name: string | null;
+          sender_phone: string | null;
           sent: boolean;
           sent_at: string | null;
+          status: string;
           text: string | null;
           to_number: string;
         };
         Insert: {
+          attempts?: number;
           created_at?: string;
           id?: string;
+          idempotency_key?: string | null;
+          last_error?: string | null;
+          locked_at?: string | null;
+          max_attempts?: number;
+          next_retry_at?: string | null;
+          payment_reference_id?: string | null;
+          scheduled_for?: string;
           sender_name?: string | null;
+          sender_phone?: string | null;
           sent?: boolean;
           sent_at?: string | null;
+          status?: string;
           text?: string | null;
           to_number: string;
         };
         Update: {
+          attempts?: number;
           created_at?: string;
           id?: string;
+          idempotency_key?: string | null;
+          last_error?: string | null;
+          locked_at?: string | null;
+          max_attempts?: number;
+          next_retry_at?: string | null;
+          payment_reference_id?: string | null;
+          scheduled_for?: string;
           sender_name?: string | null;
+          sender_phone?: string | null;
           sent?: boolean;
           sent_at?: string | null;
+          status?: string;
           text?: string | null;
           to_number?: string;
         };
@@ -143,39 +221,102 @@ export type Database = {
       whatsapp_logs: {
         Row: {
           created_at: string | null;
+          error_code: string | null;
+          error_message: string | null;
           id: string;
+          payment_reference_id: string | null;
           provider: string | null;
+          provider_status: string | null;
           recipient: string;
+          scheduled_message_id: string | null;
           status: string | null;
           template_name: string | null;
+          updated_at: string | null;
           wa_message_id: string | null;
         };
         Insert: {
           created_at?: string | null;
+          error_code?: string | null;
+          error_message?: string | null;
           id?: string;
+          payment_reference_id?: string | null;
           provider?: string | null;
+          provider_status?: string | null;
           recipient: string;
+          scheduled_message_id?: string | null;
           status?: string | null;
           template_name?: string | null;
+          updated_at?: string | null;
           wa_message_id?: string | null;
         };
         Update: {
           created_at?: string | null;
+          error_code?: string | null;
+          error_message?: string | null;
           id?: string;
+          payment_reference_id?: string | null;
           provider?: string | null;
+          provider_status?: string | null;
           recipient?: string;
+          scheduled_message_id?: string | null;
           status?: string | null;
           template_name?: string | null;
+          updated_at?: string | null;
           wa_message_id?: string | null;
         };
         Relationships: [];
       };
     };
     Views: {
-      [_ in never]: never;
+      v_kpi_payment_funnel: {
+        Row: {
+          total_intents: number | null;
+          pending_count: number | null;
+          success_count: number | null;
+          blocked_count: number | null;
+          failed_count: number | null;
+          conversion_rate_pct: number | null;
+          gross_revenue_cop: number | null;
+          avg_ticket_cop: number | null;
+        };
+        Relationships: [];
+      };
+      v_kpi_delivery_health: {
+        Row: {
+          total_scheduled: number | null;
+          pending_messages: number | null;
+          sent_messages: number | null;
+          failed_messages: number | null;
+          dead_letter_messages: number | null;
+          delivery_rate_pct: number | null;
+          failure_rate_pct: number | null;
+          dead_letter_rate_pct: number | null;
+          avg_send_latency_seconds: number | null;
+          wa_logs_total: number | null;
+          wa_delivered_count: number | null;
+          wa_failed_count: number | null;
+        };
+        Relationships: [];
+      };
+      v_kpi_daily_revenue: {
+        Row: {
+          day: string | null;
+          total_orders: number | null;
+          paid_orders: number | null;
+          failed_orders: number | null;
+          revenue_cop: number | null;
+          conversion_rate_pct: number | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
-      [_ in never]: never;
+      claim_due_scheduled_messages: {
+        Args: {
+          batch_size?: number;
+        };
+        Returns: Database["public"]["Tables"]["scheduled_messages"]["Row"][];
+      };
     };
     Enums: {
       [_ in never]: never;

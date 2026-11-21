@@ -72,7 +72,7 @@ function Landing() {
               {
                 icon: Wand2,
                 title: "Elige la ocasión",
-                body: "Cinco categorías para empezar: cumpleaños, boda, graduación y más.",
+                body: "Cinco categorías para empezar: cumpleaños, aniversario, amistad, agradecimientos o momentos especiales.",
               },
               {
                 icon: Sparkles,

@@ -1,1 +1,34 @@
 project_id = "pazykgddlrbbplvwiizr"
+
+[functions.admin-auth]
+verify_jwt = false
+
+[functions.admin-kpis]
+verify_jwt = false
+
+[functions.admin-manage-messages]
+verify_jwt = false
+
+[functions.bold-payment]
+verify_jwt = false
+
+[functions.bold-webhook]
+verify_jwt = false
+
+[functions.confirm-payment]
+verify_jwt = false
+
+[functions.generate-message]
+verify_jwt = false
+
+[functions.get-predefined-messages]
+verify_jwt = false
+
+[functions.send-scheduled-messages]
+verify_jwt = false
+
+[functions.send-whatsapp]
+verify_jwt = false
+
+[functions.twilio-webhook]
+verify_jwt = false

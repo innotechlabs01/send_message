@@ -8,6 +8,7 @@ interface ScheduledMessageRow {
   to_number: string;
   text: string | null;
   sender_name: string | null;
+  sender_phone?: string | null;
   sent: boolean;
   sent_at: string | null;
   scheduled_for?: string | null;
@@ -128,7 +129,18 @@ Deno.serve(async (req) => {
             ? `whatsapp:${fromNumber}`
             : fromNumber;
 
-        const sender = msg.sender_name ? `${msg.sender_name} (${formattedFrom})` : formattedFrom;
+        const senderName = msg.sender_name?.trim();
+        const senderPhone = msg.sender_phone?.trim();
+        let sender = "";
+        if (senderName && senderPhone) {
+          sender = `${senderName} (${senderPhone})`;
+        } else if (senderName) {
+          sender = senderName;
+        } else if (senderPhone) {
+          sender = senderPhone;
+        } else {
+          sender = "Alguien especial";
+        }
         const body = `${msg.text ?? ""}\n\nEnviado por: ${sender}`.trim();
 
         const twilioRes = await sendTwilioMessage({

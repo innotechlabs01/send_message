@@ -1,10 +1,8 @@
 import { z } from "https://deno.land/x/zod@v3.24.2/mod.ts";
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createServiceClient, verifyHmacSha256Hex } from "../_shared/auth.ts";
+import { createServiceClient } from "../_shared/auth.ts";
+import { verifyAdminSession } from "../_shared/admin-session.ts";
 import { getCorsHeaders, handleCorsPreflight, type CorsOptions } from "../_shared/cors.ts";
 import { jsonResponse, safeErrorResponse } from "../_shared/http.ts";
-
-const ADMIN_SESSION_COOKIE = "admin_session";
 
 const CORS_OPTIONS: CorsOptions = {
   credentials: true,
@@ -49,77 +47,6 @@ const manageMessagesSchema = z.discriminatedUnion("action", [
   updateMessageSchema,
   deleteMessageSchema,
 ]);
-
-interface SessionTokenPayload {
-  id: string;
-  email: string;
-  name: string | null;
-  iat: number;
-  exp: number;
-}
-
-function getSessionSecret(): string {
-  const secret = Deno.env.get("ADMIN_SESSION_SECRET");
-  if (!secret || secret.trim().length < 16) {
-    throw new Error("ADMIN_SESSION_SECRET must be configured with at least 16 characters");
-  }
-  return secret;
-}
-
-function extractRawSessionToken(req: Request): string | null {
-  const headerToken = req.headers.get("x-admin-token")?.trim();
-  if (headerToken) {
-    return headerToken;
-  }
-  const cookie = req.headers.get("cookie") ?? req.headers.get("Cookie") ?? "";
-  const match = cookie.match(new RegExp(`(?:^|;\\s*)${ADMIN_SESSION_COOKIE}=([^;]+)`));
-  return match ? match[1].trim() : null;
-}
-
-async function verifyAdminSession(
-  req: Request,
-  adminSupabase: SupabaseClient,
-): Promise<{ id: string; email: string; name: string | null } | null> {
-  const rawToken = extractRawSessionToken(req);
-  if (!rawToken) return null;
-
-  const parts = rawToken.split(".");
-  if (parts.length !== 2) return null;
-
-  const [payloadB64, signatureHex] = parts;
-  if (!payloadB64 || !signatureHex) return null;
-
-  const secret = getSessionSecret();
-  const validSig = await verifyHmacSha256Hex(secret, payloadB64, signatureHex);
-  if (!validSig) return null;
-
-  try {
-    const decoded = JSON.parse(atob(payloadB64)) as Partial<SessionTokenPayload>;
-    if (
-      !decoded ||
-      typeof decoded.id !== "string" ||
-      typeof decoded.email !== "string" ||
-      typeof decoded.exp !== "number" ||
-      decoded.exp <= Date.now()
-    ) {
-      return null;
-    }
-
-    const { data: admin, error } = await adminSupabase
-      .from("admin_users")
-      .select("id, email, name")
-      .eq("id", decoded.id)
-      .single();
-
-    if (error || !admin) {
-      return null;
-    }
-
-    return { id: admin.id, email: admin.email, name: admin.name };
-  } catch {
-    return null;
-  }
-}
 
 Deno.serve(async (req) => {
   const preflight = handleCorsPreflight(req, CORS_OPTIONS);
@@ -173,16 +100,17 @@ Deno.serve(async (req) => {
 
       case "create": {
         let sortOrder = payload.sort_order;
-        if (!sortOrder) {
-          const { data: existing } = await adminSupabase
+        if (typeof sortOrder !== "number") {
+          const { data: maxRow, error: maxErr } = await adminSupabase
             .from("predefined_messages")
             .select("sort_order")
             .eq("category_id", payload.category_id)
             .order("sort_order", { ascending: false })
-            .limit(1);
+            .limit(1)
+            .maybeSingle();
 
-          const maxOrder = existing && existing.length > 0 ? Number(existing[0].sort_order) : 0;
-          sortOrder = maxOrder + 1;
+          if (maxErr) throw maxErr;
+          sortOrder = (maxRow?.sort_order ?? 0) + 1;
         }
 
         const { data, error } = await adminSupabase
@@ -195,7 +123,17 @@ Deno.serve(async (req) => {
           .select("id, category_id, message_text, sort_order, created_at")
           .single();
 
-        if (error) throw error;
+        if (error) {
+          if (error.code === "23505") {
+            return jsonResponse(
+              { error: "Conflicto de orden: ya existe un mensaje con ese orden en la categoría" },
+              409,
+              corsHeaders,
+            );
+          }
+          throw error;
+        }
+
         return jsonResponse({ message: data }, 201, corsHeaders);
       }
 
@@ -214,7 +152,17 @@ Deno.serve(async (req) => {
           .select("id, category_id, message_text, sort_order, created_at")
           .single();
 
-        if (error) throw error;
+        if (error) {
+          if (error.code === "23505") {
+            return jsonResponse(
+              { error: "Conflicto de orden: ya existe un mensaje con ese orden en la categoría" },
+              409,
+              corsHeaders,
+            );
+          }
+          throw error;
+        }
+
         return jsonResponse({ message: data }, 200, corsHeaders);
       }
 
