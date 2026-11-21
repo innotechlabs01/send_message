@@ -1,17 +1,38 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import * as LucideIcons from "lucide-react";
-import { ArrowRight, CalendarDays, CreditCard, Image as ImageIcon, Pencil, Sparkles, Trash2, User } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarDays,
+  CreditCard,
+  Image as ImageIcon,
+  Pencil,
+  Sparkles,
+  Trash2,
+  User,
+} from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
-import { getCategory, PRICE_PER_MESSAGE, useWizard, wizard, type CartItem } from "@/lib/wizard-store";
+import {
+  getCategory,
+  PRICE_PER_MESSAGE,
+  useWizard,
+  wizard,
+  type CartItem,
+} from "@/lib/wizard-store";
 import { StepHeader } from "@/components/StepHeader";
 import { StepShell, StepFooter } from "@/components/StepShell";
 import { NewMessageDialog } from "@/components/NewMessageDialog";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/nuevo/carrito")({
@@ -63,7 +84,11 @@ function CartStep() {
       <StepHeader
         step={4}
         total={4}
-        title={items.length > 0 ? `${items.length} mensaje${items.length > 1 ? "s" : ""} programado${items.length > 1 ? "s" : ""}` : "Tu carrito está vacío"}
+        title={
+          items.length > 0
+            ? `${items.length} mensaje${items.length > 1 ? "s" : ""} programado${items.length > 1 ? "s" : ""}`
+            : "Tu carrito está vacío"
+        }
         subtitle="Revisa, edita o agrega más mensajes antes de pagar."
         backTo="/nuevo/confirmar"
       />
@@ -78,7 +103,13 @@ function CartStep() {
       ) : (
         <div className="grid md:grid-cols-2 gap-4">
           {items.map((it, i) => (
-            <CartCard key={it.id} item={it} delay={i * 60} onEdit={() => startEdit(it)} onDelete={() => tryDelete(it)} />
+            <CartCard
+              key={it.id}
+              item={it}
+              delay={i * 60}
+              onEdit={() => startEdit(it)}
+              onDelete={() => tryDelete(it)}
+            />
           ))}
         </div>
       )}
@@ -105,12 +136,16 @@ function CartStep() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar este mensaje?</AlertDialogTitle>
             <AlertDialogDescription>
-              Es el último mensaje del carrito. Si lo eliminas, <strong>no podrás recuperar el mensaje ni los datos ingresados</strong>.
+              Es el último mensaje del carrito. Si lo eliminas,{" "}
+              <strong>no podrás recuperar el mensaje ni los datos ingresados</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Conservar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmedDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={confirmedDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Sí, eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -120,13 +155,26 @@ function CartStep() {
   );
 }
 
-function CartCard({ item, delay = 0, onEdit, onDelete }: { item: CartItem; delay?: number; onEdit: () => void; onDelete: () => void }) {
+function CartCard({
+  item,
+  delay = 0,
+  onEdit,
+  onDelete,
+}: {
+  item: CartItem;
+  delay?: number;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   const category = getCategory(item.categoryId);
   if (!category) return null;
   const Icon = (LucideIcons as unknown as Record<string, LucideIcons.LucideIcon>)[category.icon];
 
   return (
-    <div className={`cat-${category.accent} glass rounded-3xl p-5 animate-rise flex flex-col`} style={{ animationDelay: `${delay}ms` }}>
+    <div
+      className={`cat-${category.accent} glass rounded-3xl p-5 animate-rise flex flex-col`}
+      style={{ animationDelay: `${delay}ms` }}
+    >
       <div className="aspect-[16/9] bg-muted rounded-2xl border border-border/60 grid place-items-center text-muted-foreground mb-4 relative overflow-hidden">
         <div className="flex flex-col items-center gap-1.5 text-xs">
           <ImageIcon className="w-5 h-5 opacity-60" />
@@ -143,20 +191,32 @@ function CartCard({ item, delay = 0, onEdit, onDelete }: { item: CartItem; delay
       <div className="space-y-2 text-sm flex-1">
         <div className="flex items-center gap-2 text-muted-foreground">
           <User className="w-3.5 h-3.5" />
-          <span>Para <span className="text-foreground font-medium">{item.recipient || "—"}</span></span>
+          <span>
+            Para <span className="text-foreground font-medium">{item.recipient || "—"}</span>
+          </span>
         </div>
         <div className="flex items-center gap-2 text-muted-foreground">
           <CalendarDays className="w-3.5 h-3.5" />
-          <span>{format(new Date(item.sendDate + "T00:00:00"), "EEEE d 'de' MMMM, yyyy", { locale: es })}</span>
+          <span>
+            {format(new Date(item.sendDate + "T00:00:00"), "EEEE d 'de' MMMM, yyyy", {
+              locale: es,
+            })}
+          </span>
         </div>
         <p className="text-foreground/85 leading-relaxed line-clamp-3 pt-1">{item.message}</p>
       </div>
 
       <div className="flex gap-2 mt-4 pt-4 border-t border-border/50">
-        <button onClick={onEdit} className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-full text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors">
+        <button
+          onClick={onEdit}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-full text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+        >
           <Pencil className="w-3.5 h-3.5" /> Editar
         </button>
-        <button onClick={onDelete} className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-full text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+        <button
+          onClick={onDelete}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-full text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+        >
           <Trash2 className="w-3.5 h-3.5" /> Eliminar
         </button>
       </div>

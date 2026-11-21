@@ -6,9 +6,16 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "ConSentido — Mensajes especiales para fechas especiales" },
-      { name: "description", content: "Crea mensajes únicos generados con IA para cumpleaños, aniversarios, graduaciones y más. Envíalos con intención." },
+      {
+        name: "description",
+        content:
+          "Crea mensajes únicos generados con IA para cumpleaños, aniversarios, graduaciones y más. Envíalos con intención.",
+      },
       { property: "og:title", content: "ConSentido — Mensajes especiales" },
-      { property: "og:description", content: "Mensajes únicos con IA para las fechas que importan." },
+      {
+        property: "og:description",
+        content: "Mensajes únicos con IA para las fechas que importan.",
+      },
     ],
   }),
   component: Landing,
@@ -39,14 +46,12 @@ function Landing() {
             <span className="text-gradient">para los momentos que importan.</span>
           </h1>
           <p className="mt-6 text-lg text-muted-foreground max-w-xl mx-auto">
-            Cumpleaños, aniversarios, graduaciones. Crea un mensaje pensado a tu medida en menos de un minuto.
+            Cumpleaños, aniversarios, graduaciones. Crea un mensaje pensado a tu medida en menos de
+            un minuto.
           </p>
 
           <div className="mt-10 flex items-center justify-center gap-3">
-            <Link
-              to="/nuevo/categoria"
-              className="group btn-base btn-primary"
-            >
+            <Link to="/nuevo/categoria" className="group btn-base btn-primary">
               Crear nuevo mensaje
               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
@@ -64,9 +69,21 @@ function Landing() {
           </div>
           <div className="grid md:grid-cols-3 md:divide-x divide-border/60">
             {[
-              { icon: Wand2, title: "Elige la ocasión", body: "Seis categorías para empezar: cumpleaños, boda, graduación y más." },
-              { icon: Sparkles, title: "5 mensajes con IA", body: "Sugerencias originales. ¿No te gustan? Refresca y obtén otros cinco." },
-              { icon: Send, title: "Envía con intención", body: "Confirma destinatario, remitente y números. Listo para enviar." },
+              {
+                icon: Wand2,
+                title: "Elige la ocasión",
+                body: "Cinco categorías para empezar: cumpleaños, boda, graduación y más.",
+              },
+              {
+                icon: Sparkles,
+                title: "5 mensajes con IA",
+                body: "Sugerencias originales. ¿No te gustan? Refresca y obtén otros cinco.",
+              },
+              {
+                icon: Send,
+                title: "Envía con intención",
+                body: "Confirma destinatario, remitente y números. Listo para enviar.",
+              },
             ].map((f, i) => (
               <div
                 key={f.title}
@@ -90,12 +107,10 @@ function Landing() {
             Cada paso, en tus manos.
           </h2>
           <p className="mt-3 text-muted-foreground max-w-xl mx-auto">
-            Vuelve atrás, deshaz una elección o empieza de nuevo cuando quieras. El proceso se siente liviano y bajo control.
+            Vuelve atrás, deshaz una elección o empieza de nuevo cuando quieras. El proceso se
+            siente liviano y bajo control.
           </p>
-          <Link
-            to="/nuevo/categoria"
-            className="mt-8 btn-base btn-secondary"
-          >
+          <Link to="/nuevo/categoria" className="mt-8 btn-base btn-secondary">
             Empezar ahora
             <ArrowRight className="w-4 h-4" />
           </Link>

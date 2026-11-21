@@ -124,7 +124,9 @@ function MessageStep() {
   }
 
   // Filtrar mensajes: anclados + frescos (hasta TOTAL_SLOTS)
-  const freshMessages = messages.filter((m) => !pinned.includes(m)).slice(0, TOTAL_SLOTS - pinned.length);
+  const freshMessages = messages
+    .filter((m) => !pinned.includes(m))
+    .slice(0, TOTAL_SLOTS - pinned.length);
   const showDbBadge = source === "db" && messages.length > 0;
   const showAiBadge = source === "ai";
 
@@ -168,7 +170,14 @@ function MessageStep() {
           </div>
           <div className="space-y-3">
             {pinned.map((m, i) => (
-              <MessageItem key={`p-${i}`} index={i + 1} message={m} pinned onPick={() => pick(m)} onTogglePin={() => togglePin(m)} />
+              <MessageItem
+                key={`p-${i}`}
+                index={i + 1}
+                message={m}
+                pinned
+                onPick={() => pick(m)}
+                onTogglePin={() => togglePin(m)}
+              />
             ))}
           </div>
           <div className="my-6 border-t border-border/60" />
@@ -199,8 +208,16 @@ function MessageStep() {
           <p className="hidden sm:block text-sm text-muted-foreground">
             ¿Quieres más opciones? Refresca y compara con tus anclados.
           </p>
-          <button onClick={handleRefresh} disabled={loading} className="btn-base btn-secondary w-full sm:w-auto">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          <button
+            onClick={handleRefresh}
+            disabled={loading}
+            className="btn-base btn-secondary w-full sm:w-auto"
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
             Refrescar
           </button>
         </div>
@@ -210,21 +227,38 @@ function MessageStep() {
 }
 
 function MessageItem({
-  index, message, pinned = false, onPick, onTogglePin, delay = 0,
+  index,
+  message,
+  pinned = false,
+  onPick,
+  onTogglePin,
+  delay = 0,
 }: {
-  index: number; message: string; pinned?: boolean;
-  onPick: () => void; onTogglePin: () => void; delay?: number;
+  index: number;
+  message: string;
+  pinned?: boolean;
+  onPick: () => void;
+  onTogglePin: () => void;
+  delay?: number;
 }) {
   return (
-    <div className="glass step-card rounded-2xl p-5 flex items-start gap-4 animate-rise group" style={{ animationDelay: `${delay}ms` }}>
-      <span className="shrink-0 w-8 h-8 rounded-full icon-duotone grid place-items-center text-sm font-medium tabular-nums">{index}</span>
-      <button onClick={onPick} className="flex-1 text-left leading-relaxed text-foreground/95">{message}</button>
+    <div
+      className="glass step-card rounded-2xl p-5 flex items-start gap-4 animate-rise group"
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      <span className="shrink-0 w-8 h-8 rounded-full icon-duotone grid place-items-center text-sm font-medium tabular-nums">
+        {index}
+      </span>
+      <button onClick={onPick} className="flex-1 text-left leading-relaxed text-foreground/95">
+        {message}
+      </button>
       <button
         onClick={onTogglePin}
         aria-label={pinned ? "Desanclar" : "Anclar"}
         className={`shrink-0 w-9 h-9 rounded-full grid place-items-center border transition-colors ${
-          pinned ? "bg-primary text-primary-foreground border-transparent"
-                   : "bg-card text-muted-foreground border-border hover:text-foreground hover:border-primary/40"
+          pinned
+            ? "bg-primary text-primary-foreground border-transparent"
+            : "bg-card text-muted-foreground border-border hover:text-foreground hover:border-primary/40"
         }`}
       >
         {pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}

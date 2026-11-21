@@ -1,96 +1,90 @@
-// Get predefined messages from database with pagination
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { z } from "https://deno.land/x/zod@v3.24.2/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { jsonResponse, safeErrorResponse } from "../_shared/http.ts";
+
+const getPredefinedMessagesSchema = z.object({
+  category: z.enum(["cumpleanos", "graduacion", "aniversario", "luto", "amor"], {
+    errorMap: () => ({ message: "Categoría inválida" }),
+  }),
+  offset: z.number().int().min(0).optional().default(0),
+  limit: z.number().int().min(1).max(20).optional().default(5),
+});
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const preflight = handleCorsPreflight(req);
+  if (preflight) return preflight;
+
+  const corsHeaders = getCorsHeaders(req);
+
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "Método no permitido" }, 405, corsHeaders);
+  }
 
   try {
-    const { category, offset = 0, limit = 5 } = await req.json();
-
-    if (!category) {
-      return new Response(JSON.stringify({ error: "Categoría requerida" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    let rawBody: unknown;
+    try {
+      rawBody = await req.json();
+    } catch {
+      return jsonResponse({ error: "Cuerpo JSON inválido" }, 400, corsHeaders);
     }
 
-    const validCategories = ['cumpleanos', 'graduacion', 'aniversario', 'luto', 'amor'];
-    if (!validCategories.includes(category)) {
-      return new Response(JSON.stringify({ error: "Categoría inválida" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const parsed = getPredefinedMessagesSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return jsonResponse(
+        {
+          error: parsed.error.issues[0]?.message ?? "Parámetros inválidos",
+          details: parsed.error.flatten().fieldErrors,
+        },
+        400,
+        corsHeaders,
+      );
     }
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+    const { category, offset, limit } = parsed.data;
 
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey =
+      Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!supabaseUrl || !supabaseKey) {
       throw new Error("Variables de entorno Supabase no configuradas");
     }
 
-    // Obtener total de mensajes para la categoría
-    const countResp = await fetch(
-      `${SUPABASE_URL}/rest/v1/predefined_messages?category_id=eq.${category}&select=count`,
-      {
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          Prefer: "count=exact",
-        },
-      }
-    );
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
 
-    if (!countResp.ok) {
-      const err = await countResp.text();
-      throw new Error(`Error counting messages: ${err}`);
+    const { data, count, error } = await supabase
+      .from("predefined_messages")
+      .select("message_text", { count: "exact" })
+      .eq("category_id", category)
+      .order("sort_order", { ascending: true })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      throw error;
     }
 
-    const total = parseInt(countResp.headers.get("content-range")?.split("/")[1] || "0");
-
-    // Obtener página de mensajes
-    const messagesResp = await fetch(
-      `${SUPABASE_URL}/rest/v1/predefined_messages?category_id=eq.${category}&order=sort_order.asc&limit=${limit}&offset=${offset}&select=message_text`,
-      {
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        },
-      }
-    );
-
-    if (!messagesResp.ok) {
-      const err = await messagesResp.text();
-      throw new Error(`Error fetching messages: ${err}`);
-    }
-
-    const data = await messagesResp.json();
-    const messages = data.map((row: { message_text: string }) => row.message_text);
+    const total = count ?? 0;
+    const messages = (data ?? []).map((row: { message_text: string }) => row.message_text);
     const hasMore = offset + limit < total;
 
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         messages,
         hasMore,
         total,
         offset,
         limit,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
+      200,
+      corsHeaders,
     );
-  } catch (e) {
-    console.error(e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Error interno" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+  } catch (err) {
+    return safeErrorResponse(err, corsHeaders, 500);
   }
 });

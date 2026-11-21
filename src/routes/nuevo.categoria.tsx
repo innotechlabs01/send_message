@@ -44,7 +44,10 @@ function CategoryStep() {
               style={{ animationDelay: `${i * 60}ms` }}
             >
               <div className="flex items-start justify-between mb-4">
-                <div data-cat className="w-12 h-12 rounded-2xl icon-duotone grid place-items-center transition-transform group-hover:scale-110">
+                <div
+                  data-cat
+                  className="w-12 h-12 rounded-2xl icon-duotone grid place-items-center transition-transform group-hover:scale-110"
+                >
                   {Icon ? <Icon className="w-6 h-6" /> : null}
                 </div>
                 <div className="w-8 h-8 rounded-full bg-primary/10 text-primary grid place-items-center opacity-0 group-hover:opacity-100 transition-opacity">

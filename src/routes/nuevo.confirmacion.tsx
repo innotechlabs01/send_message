@@ -4,24 +4,9 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { StepHeader } from "@/components/StepHeader";
 import { StepFooter, StepShell } from "@/components/StepShell";
 import { getPaymentStatus } from "@/lib/bold";
-import {
-  getPaymentStatusCopy,
-  type PaymentState,
-  type PaymentRecord,
-} from "@/lib/payment-status";
-import {
-  AlertCircle,
-  ArrowLeft,
-  CheckCircle2,
-  Loader2,
-  ShieldAlert,
-} from "lucide-react";
+import { getPaymentStatusCopy, type PaymentState } from "@/lib/payment-status";
+import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, ShieldAlert } from "lucide-react";
 import { z } from "zod";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const Route = createFileRoute("/nuevo/confirmacion")({
   validateSearch: z.object({
@@ -42,22 +27,16 @@ function PaymentConfirmation() {
   const [gatewayReason, setGatewayReason] = useState<string>();
   const [gatewayRaw, setGatewayRaw] = useState<Record<string, unknown>>();
   const [lastPolled, setLastPolled] = useState<Date | null>(null);
-  const [persisted, setPersisted] = useState(false);
 
+  const statusRef = useRef<Status>("checking");
   const intervalRef = useRef<number | null>(null);
   const isMountedRef = useRef(true);
   const pollCountRef = useRef(0);
   const maxPolls = 40; // ~2 minutes at 3s interval
 
-  const persistPayment = useCallback(async (record: PaymentRecord) => {
-    try {
-      await supabase.from("payments").upsert(record, {
-        onConflict: "reference_id",
-      });
-      setPersisted(true);
-    } catch (e) {
-      console.error("Failed to persist payment:", e);
-    }
+  const updateStatus = useCallback((nextStatus: Status) => {
+    statusRef.current = nextStatus;
+    setStatus(nextStatus);
   }, []);
 
   const checkStatus = useCallback(async () => {
@@ -69,13 +48,15 @@ function PaymentConfirmation() {
 
       if (!isMountedRef.current) return;
 
-      // Check if Bold API returned an error in the response body (even with 2xx HTTP)
+      // Check if Bold/edge function returned an error in the response body
       const boldError = result?.error || result?.error_message || result?.message;
       if (boldError) {
-        throw new Error(typeof boldError === 'string' ? boldError : 'Error en la respuesta de Bold');
+        throw new Error(
+          typeof boldError === "string" ? boldError : "Error en la respuesta de Bold",
+        );
       }
 
-      const boldStatus = result?.status || result?.state || "UNKNOWN";
+      const boldStatus = result?.boldStatus || result?.status || result?.state || "UNKNOWN";
       const gwReason = result?.reason || result?.decline_reason || result?.error_message;
       const gwRaw = result as Record<string, unknown>;
 
@@ -84,23 +65,12 @@ function PaymentConfirmation() {
       setLastPolled(new Date());
 
       const copy = getPaymentStatusCopy(boldStatus, undefined, gwReason);
-      setStatus(copy.state);
+      updateStatus(copy.state);
       if (copy.errorCode) setError(copy.errorCode);
 
-      // Persist to DB
-      await persistPayment({
-        referenceId: payment_id,
-        state: copy.state,
-        boldStatus,
-        amount: result?.amount || 0,
-        gatewayReason: gwReason,
-        gatewayRaw: gwRaw,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-
       // Stop polling on terminal states
-      const isTerminal = copy.state === "success" || copy.state === "failure" || copy.state === "gateway_blocked";
+      const isTerminal =
+        copy.state === "success" || copy.state === "failure" || copy.state === "gateway_blocked";
       if (isTerminal || pollCountRef.current >= maxPolls) {
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
@@ -110,9 +80,14 @@ function PaymentConfirmation() {
     } catch (err: unknown) {
       if (!isMountedRef.current) return;
       const msg = err instanceof Error ? err.message : "Error verificando pago";
-      // Don't override if we already have a terminal state from a previous successful poll
-      if (status !== "success" && status !== "failure" && status !== "gateway_blocked") {
-        setStatus("failure");
+      const currentStatus = statusRef.current;
+      // Don't override if we already reached a terminal state from a previous poll
+      if (
+        currentStatus !== "success" &&
+        currentStatus !== "failure" &&
+        currentStatus !== "gateway_blocked"
+      ) {
+        updateStatus("failure");
         setError(msg);
       }
       if (intervalRef.current) {
@@ -120,11 +95,11 @@ function PaymentConfirmation() {
         intervalRef.current = null;
       }
     }
-  }, [payment_id, persistPayment]);
+  }, [payment_id, updateStatus]);
 
   useEffect(() => {
     if (!payment_id) {
-      setStatus("failure");
+      updateStatus("failure");
       setError("Falta el ID del pago");
       return;
     }
@@ -137,7 +112,8 @@ function PaymentConfirmation() {
 
     // Poll every 3 seconds while pending
     intervalRef.current = window.setInterval(() => {
-      if (status === "pending" || status === "checking") {
+      const current = statusRef.current;
+      if (current === "pending" || current === "checking") {
         checkStatus();
       }
     }, 3000);
@@ -149,7 +125,7 @@ function PaymentConfirmation() {
         intervalRef.current = null;
       }
     };
-  }, [payment_id, checkStatus, status]);
+  }, [payment_id, checkStatus, updateStatus]);
 
   const copy = getPaymentStatusCopy(status, error, gatewayReason);
   const isPending = status === "checking" || status === "pending";
@@ -188,7 +164,9 @@ function PaymentConfirmation() {
                   <p className="mt-1 text-sm text-amber-700 font-mono">{gatewayReason}</p>
                   {gatewayRaw && Object.keys(gatewayRaw).length > 0 && (
                     <details className="mt-2">
-                      <summary className="text-xs text-amber-600 cursor-pointer">Ver detalles técnicos</summary>
+                      <summary className="text-xs text-amber-600 cursor-pointer">
+                        Ver detalles técnicos
+                      </summary>
                       <pre className="mt-2 text-xs bg-amber-100 p-2 rounded overflow-auto">
                         {JSON.stringify(gatewayRaw, null, 2)}
                       </pre>
@@ -217,7 +195,6 @@ function PaymentConfirmation() {
             {lastPolled && (
               <p className="mt-4 text-xs text-muted-foreground">
                 Última verificación: {lastPolled.toLocaleTimeString("es-CO")}
-                {persisted && " · Guardado en BD"}
               </p>
             )}
           </div>
@@ -225,8 +202,7 @@ function PaymentConfirmation() {
       </main>
 
       <StepFooter>
-        <>
-        </>
+        <></>
       </StepFooter>
     </StepShell>
   );

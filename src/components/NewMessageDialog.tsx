@@ -1,39 +1,39 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import * as LucideIcons from "lucide-react";
-import { ArrowLeft, ArrowRight, CalendarDays, Image as ImageIcon, Loader2, Pin, PinOff, RefreshCw } from "lucide-react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Database,
+  Image as ImageIcon,
+  Loader2,
+  Pin,
+  RefreshCw,
+  Sparkles,
+} from "lucide-react";
 import { toast } from "sonner";
-import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIES, getCategory, wizard, type CartItem } from "@/lib/wizard-store";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { formatPhone } from "@/lib/phone";
+import {
+  DateField,
+  MessageInput,
+  MessageOptionCard,
+  messageDetailsSchema,
+} from "@/components/MessageFormFields";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
-const today = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
 const MAX_PINNED = 2;
 const TOTAL_SLOTS = 5;
+const PAGE_SIZE = 5;
 
-function formatPhone(raw: string): string {
-  const digits = raw.replace(/\D/g, "").slice(0, 10);
-  const parts: string[] = [];
-  if (digits.length > 0) parts.push(digits.slice(0, 3));
-  if (digits.length > 3) parts.push(digits.slice(3, 6));
-  if (digits.length > 6) parts.push(digits.slice(6, 8));
-  if (digits.length > 8) parts.push(digits.slice(8, 10));
-  return parts.join("-");
-}
-
-const dataSchema = z.object({
-  recipient: z.string().trim().min(1, "Obligatorio").max(80),
-  sender: z.string().trim().min(1, "Obligatorio").max(80),
-  phoneFrom: z.string().trim().refine((v) => v.replace(/\D/g, "").length === 10, "10 dígitos"),
-  phoneTo: z.string().trim().refine((v) => v.replace(/\D/g, "").length === 10, "10 dígitos"),
-  sendDate: z.string().min(1, "Selecciona fecha")
-    .refine((s) => { const dd = new Date(s + "T00:00:00"); return !isNaN(dd.getTime()) && dd.getTime() >= today().getTime(); }, "Debe ser hoy o posterior"),
-});
+type MessageSource = "db" | "ai";
 
 type Form = {
   categoryId: string | null;
@@ -46,12 +46,19 @@ type Form = {
 };
 
 const emptyForm: Form = {
-  categoryId: null, message: null,
-  recipient: "", sender: "", phoneFrom: "", phoneTo: "", sendDate: null,
+  categoryId: null,
+  message: null,
+  recipient: "",
+  sender: "",
+  phoneFrom: "",
+  phoneTo: "",
+  sendDate: null,
 };
 
 export function NewMessageDialog({
-  open, onOpenChange, editingItem,
+  open,
+  onOpenChange,
+  editingItem,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -62,7 +69,10 @@ export function NewMessageDialog({
   const [messages, setMessages] = useState<string[]>([]);
   const [pinned, setPinned] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [seed, setSeed] = useState(0);
+  const [source, setSource] = useState<MessageSource>("db");
+  const [offset, setOffset] = useState(0);
+  const [aiSeed, setAiSeed] = useState(0);
+  const [lastDbMessages, setLastDbMessages] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Reset / seed when opening
@@ -77,49 +87,105 @@ export function NewMessageDialog({
     }
     setMessages([]);
     setPinned([]);
-    setSeed(0);
+    setSource("db");
+    setOffset(0);
+    setAiSeed(0);
+    setLastDbMessages([]);
     setErrors({});
   }, [open, editingItem]);
 
   const category = getCategory(form.categoryId);
 
-  async function loadMessages(nextSeed: number) {
-    if (!category) return;
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("generate-message", {
-        body: { category: category.label, seed: nextSeed },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      setMessages(data?.messages ?? []);
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "No fue posible generar mensajes");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function goStep2(catId: string) {
-    setForm((f) => ({ ...f, categoryId: catId, message: f.categoryId === catId ? f.message : null }));
-    setStep(2);
-    setMessages([]);
-    setPinned([]);
-    setSeed(0);
-    // Trigger load on step 2 after state updates
-    setTimeout(() => {
+  const loadMessagesForCategory = useCallback(
+    async (
+      catId: string,
+      currentSource: MessageSource,
+      currentOffset: number,
+      currentAiSeed: number,
+      currentExamples: string[],
+    ) => {
       const cat = getCategory(catId);
       if (!cat) return;
       setLoading(true);
-      supabase.functions.invoke("generate-message", { body: { category: cat.label, seed: 0 } })
-        .then(({ data, error }) => {
+      try {
+        if (currentSource === "db") {
+          const { data, error } = await supabase.functions.invoke("get-predefined-messages", {
+            body: { category: cat.id, offset: currentOffset, limit: PAGE_SIZE },
+          });
           if (error) throw error;
           if (data?.error) throw new Error(data.error);
-          setMessages(data?.messages ?? []);
-        })
-        .catch((e: unknown) => toast.error(e instanceof Error ? e.message : "Error"))
-        .finally(() => setLoading(false));
-    }, 0);
+
+          const newMessages: string[] = data?.messages ?? [];
+          const hasMore = Boolean(data?.hasMore);
+
+          if (newMessages.length > 0) {
+            setMessages((prev) => Array.from(new Set([...prev, ...newMessages])));
+            setLastDbMessages(newMessages);
+            setOffset(currentOffset + PAGE_SIZE);
+          }
+
+          if (!hasMore) {
+            setSource("ai");
+            setAiSeed(0);
+            // If DB returned zero messages on initial load, fall back immediately to AI generation
+            if (newMessages.length === 0) {
+              const { data: aiData, error: aiErr } = await supabase.functions.invoke(
+                "generate-message",
+                {
+                  body: {
+                    category: cat.label,
+                    seed: 0,
+                    examples: currentExamples.length > 0 ? currentExamples.slice(-5) : undefined,
+                  },
+                },
+              );
+              if (aiErr) throw aiErr;
+              if (aiData?.error) throw new Error(aiData.error);
+              const aiMessages: string[] = aiData?.messages ?? [];
+              setMessages((prev) => Array.from(new Set([...prev, ...aiMessages])));
+              setAiSeed(1);
+            } else {
+              toast.info("Generando nuevos mensajes con IA...", { duration: 2000 });
+            }
+          }
+        } else {
+          const { data, error } = await supabase.functions.invoke("generate-message", {
+            body: {
+              category: cat.label,
+              seed: currentAiSeed,
+              examples: currentExamples.length > 0 ? currentExamples.slice(-5) : undefined,
+            },
+          });
+          if (error) throw error;
+          if (data?.error) throw new Error(data.error);
+
+          const newMessages: string[] = data?.messages ?? [];
+          setMessages((prev) => Array.from(new Set([...prev, ...newMessages])));
+          setAiSeed(currentAiSeed + 1);
+        }
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : "No fue posible cargar los mensajes");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  function goStep2(catId: string) {
+    setForm((f) => ({
+      ...f,
+      categoryId: catId,
+      message: f.categoryId === catId ? f.message : null,
+    }));
+    setStep(2);
+    setMessages([]);
+    setPinned([]);
+    setSource("db");
+    setOffset(0);
+    setAiSeed(0);
+    setLastDbMessages([]);
+    void loadMessagesForCategory(catId, "db", 0, 0, []);
   }
 
   function pickMessage(m: string) {
@@ -130,19 +196,25 @@ export function NewMessageDialog({
   function togglePin(m: string) {
     setPinned((prev) => {
       if (prev.includes(m)) return prev.filter((x) => x !== m);
-      if (prev.length >= MAX_PINNED) { toast.error(`Máx ${MAX_PINNED} anclados`); return prev; }
+      if (prev.length >= MAX_PINNED) {
+        toast.error(`Máx ${MAX_PINNED} anclados`);
+        return prev;
+      }
       return [...prev, m];
     });
   }
 
   function refresh() {
-    const next = seed + 1; setSeed(next); loadMessages(next);
+    if (!form.categoryId) return;
+    void loadMessagesForCategory(form.categoryId, source, offset, aiSeed, lastDbMessages);
   }
 
   function submit() {
-    const r = dataSchema.safeParse({
-      recipient: form.recipient, sender: form.sender,
-      phoneFrom: form.phoneFrom, phoneTo: form.phoneTo,
+    const r = messageDetailsSchema.safeParse({
+      recipient: form.recipient,
+      sender: form.sender,
+      phoneFrom: form.phoneFrom,
+      phoneTo: form.phoneTo,
       sendDate: form.sendDate ?? "",
     });
     if (!r.success) {
@@ -181,6 +253,8 @@ export function NewMessageDialog({
   }
 
   const fresh = messages.filter((m) => !pinned.includes(m)).slice(0, TOTAL_SLOTS - pinned.length);
+  const showDbBadge = source === "db" && messages.length > 0;
+  const showAiBadge = source === "ai";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -191,10 +265,18 @@ export function NewMessageDialog({
               {editingItem ? "Editar mensaje" : "Nuevo mensaje"}
             </DialogTitle>
             <DialogDescription className="text-[13px]">
-              Paso {step} de 3 · {step === 1 ? "Elige la ocasión" : step === 2 ? "Elige el mensaje" : "Completa los datos"}
+              Paso {step} de 3 ·{" "}
+              {step === 1
+                ? "Elige la ocasión"
+                : step === 2
+                  ? "Elige el mensaje"
+                  : "Completa los datos"}
             </DialogDescription>
             <div className="h-[2px] w-full bg-muted rounded-full overflow-hidden mt-3">
-              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(step / 3) * 100}%`, background: "var(--gradient-primary)" }} />
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${(step / 3) * 100}%`, background: "var(--gradient-primary)" }}
+              />
             </div>
           </DialogHeader>
 
@@ -202,7 +284,9 @@ export function NewMessageDialog({
             {step === 1 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 py-2">
                 {CATEGORIES.map((cat) => {
-                  const Icon = (LucideIcons as unknown as Record<string, LucideIcons.LucideIcon>)[cat.icon];
+                  const Icon = (LucideIcons as unknown as Record<string, LucideIcons.LucideIcon>)[
+                    cat.icon
+                  ];
                   const selected = form.categoryId === cat.id;
                   return (
                     <button
@@ -210,7 +294,10 @@ export function NewMessageDialog({
                       onClick={() => goStep2(cat.id)}
                       className={`cat-${cat.accent} glass step-card rounded-2xl p-4 text-left group ${selected ? "!border-primary/40" : ""}`}
                     >
-                      <div data-cat className="w-10 h-10 rounded-xl icon-duotone grid place-items-center mb-3 transition-transform group-hover:scale-110">
+                      <div
+                        data-cat
+                        className="w-10 h-10 rounded-xl icon-duotone grid place-items-center mb-3 transition-transform group-hover:scale-110"
+                      >
                         {Icon ? <Icon className="w-5 h-5" /> : null}
                       </div>
                       <h4 className="text-sm font-semibold">{cat.label}</h4>
@@ -223,25 +310,58 @@ export function NewMessageDialog({
 
             {step === 2 && (
               <div className="space-y-2 py-1">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    {showDbBadge && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-green-100 text-green-800">
+                        <Database className="w-3 h-3" />
+                        Mensajes originales
+                      </span>
+                    )}
+                    {showAiBadge && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-purple-100 text-purple-800">
+                        <Sparkles className="w-3 h-3" />
+                        Generados por IA
+                      </span>
+                    )}
+                  </div>
+                </div>
+
                 {pinned.length > 0 && (
                   <>
                     <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground mb-2">
                       <Pin className="w-3.5 h-3.5" /> Anclados ({pinned.length}/{MAX_PINNED})
                     </div>
                     {pinned.map((m, i) => (
-                      <MiniMsg key={`p-${i}`} message={m} pinned onSelect={() => pickMessage(m)} onTogglePin={() => togglePin(m)} />
+                      <MessageOptionCard
+                        key={`p-${i}`}
+                        message={m}
+                        pinned
+                        compact
+                        onSelect={() => pickMessage(m)}
+                        onTogglePin={() => togglePin(m)}
+                      />
                     ))}
                     <div className="border-t border-border/60 my-3" />
                   </>
                 )}
                 {loading && fresh.length === 0
                   ? Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="bg-secondary/50 rounded-xl h-16 relative overflow-hidden">
+                      <div
+                        key={i}
+                        className="bg-secondary/50 rounded-xl h-16 relative overflow-hidden"
+                      >
                         <div className="absolute inset-0 animate-shimmer" />
                       </div>
                     ))
                   : fresh.map((m, i) => (
-                      <MiniMsg key={`${seed}-${i}`} message={m} onSelect={() => pickMessage(m)} onTogglePin={() => togglePin(m)} />
+                      <MessageOptionCard
+                        key={`${source}-${offset}-${aiSeed}-${i}`}
+                        message={m}
+                        compact
+                        onSelect={() => pickMessage(m)}
+                        onTogglePin={() => togglePin(m)}
+                      />
                     ))}
               </div>
             )}
@@ -259,12 +379,47 @@ export function NewMessageDialog({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <MiniInput label="Para" value={form.recipient} onChange={(v) => setForm((f) => ({ ...f, recipient: v }))} error={errors.recipient} placeholder="Destinatario" />
-                  <MiniInput label="De" value={form.sender} onChange={(v) => setForm((f) => ({ ...f, sender: v }))} error={errors.sender} placeholder="Tu nombre" />
-                  <MiniInput label="Cel. remitente" value={form.phoneFrom} onChange={(v) => setForm((f) => ({ ...f, phoneFrom: formatPhone(v) }))} error={errors.phoneFrom} placeholder="300-000-00-00" phone />
-                  <MiniInput label="Cel. destinatario" value={form.phoneTo} onChange={(v) => setForm((f) => ({ ...f, phoneTo: formatPhone(v) }))} error={errors.phoneTo} placeholder="300-000-00-00" phone />
+                  <MessageInput
+                    label="Para"
+                    value={form.recipient}
+                    onChange={(v) => setForm((f) => ({ ...f, recipient: v }))}
+                    error={errors.recipient}
+                    placeholder="Destinatario"
+                    compact
+                  />
+                  <MessageInput
+                    label="De"
+                    value={form.sender}
+                    onChange={(v) => setForm((f) => ({ ...f, sender: v }))}
+                    error={errors.sender}
+                    placeholder="Tu nombre"
+                    compact
+                  />
+                  <MessageInput
+                    label="Cel. remitente"
+                    value={form.phoneFrom}
+                    onChange={(v) => setForm((f) => ({ ...f, phoneFrom: formatPhone(v) }))}
+                    error={errors.phoneFrom}
+                    placeholder="300-000-00-00"
+                    phone
+                    compact
+                  />
+                  <MessageInput
+                    label="Cel. destinatario"
+                    value={form.phoneTo}
+                    onChange={(v) => setForm((f) => ({ ...f, phoneTo: formatPhone(v) }))}
+                    error={errors.phoneTo}
+                    placeholder="300-000-00-00"
+                    phone
+                    compact
+                  />
                   <div className="sm:col-span-2">
-                    <MiniDate value={form.sendDate} onChange={(iso) => setForm((f) => ({ ...f, sendDate: iso }))} error={errors.sendDate} />
+                    <DateField
+                      value={form.sendDate}
+                      onChange={(iso) => setForm((f) => ({ ...f, sendDate: iso }))}
+                      error={errors.sendDate}
+                      compact
+                    />
                   </div>
                 </div>
               </div>
@@ -284,8 +439,16 @@ export function NewMessageDialog({
             </button>
 
             {step === 2 && (
-              <button onClick={refresh} disabled={loading} className="btn-base btn-secondary w-full sm:w-auto">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              <button
+                onClick={refresh}
+                disabled={loading}
+                className="btn-base btn-secondary w-full sm:w-auto"
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
                 Refrescar
               </button>
             )}
@@ -300,86 +463,5 @@ export function NewMessageDialog({
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function MiniMsg({ message, pinned = false, onSelect, onTogglePin }: { message: string; pinned?: boolean; onSelect: () => void; onTogglePin: () => void }) {
-  return (
-    <div className="bg-secondary/50 border border-border/50 rounded-xl p-3 flex items-start gap-3 hover:border-primary/40 transition-colors">
-      <button onClick={onSelect} className="flex-1 text-left text-sm leading-relaxed">{message}</button>
-      <button
-        onClick={onTogglePin}
-        aria-label={pinned ? "Desanclar" : "Anclar"}
-        className={`shrink-0 w-8 h-8 rounded-full grid place-items-center border transition-colors ${
-          pinned ? "bg-primary text-primary-foreground border-transparent" : "bg-card text-muted-foreground border-border hover:text-foreground"
-        }`}
-      >
-        {pinned ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />}
-      </button>
-    </div>
-  );
-}
-
-function MiniInput({ label, value, onChange, placeholder, error, phone }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; error?: string; phone?: boolean }) {
-  const filled = value.trim().length > 0 && !error;
-  return (
-    <label className="block">
-      <span className="text-[11px] uppercase tracking-widest text-muted-foreground">{label}</span>
-      <input
-        value={value}
-        inputMode={phone ? "numeric" : undefined}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={`mt-1.5 w-full bg-input/60 border rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary transition-colors ${
-          error ? "border-destructive" : filled ? "input-filled" : "border-border"
-        }`}
-      />
-      {error && <span className="text-[11px] text-destructive mt-1 block">{error}</span>}
-    </label>
-  );
-}
-
-function MiniDate({ value, onChange, error }: { value: string | null; onChange: (iso: string) => void; error?: string }) {
-  const [open, setOpen] = useState(false);
-  const selected = value ? new Date(value + "T00:00:00") : undefined;
-  const min = today();
-  return (
-    <div className="block">
-      <span className="text-[11px] uppercase tracking-widest text-muted-foreground">Fecha de envío</span>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            className={cn(
-              "mt-1.5 w-full bg-input/60 border rounded-xl px-3 py-2.5 text-sm text-left flex items-center justify-between gap-3 transition-colors focus:outline-none focus:border-primary",
-              error ? "border-destructive" : selected ? "input-filled" : "border-border",
-              !selected && "text-muted-foreground/70",
-            )}
-          >
-            <span className="truncate">
-              {selected ? format(selected, "EEEE d 'de' MMMM, yyyy", { locale: es }) : "Selecciona una fecha"}
-            </span>
-            <CalendarDays className="w-4 h-4 text-muted-foreground shrink-0" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent side="top" align="end" className="w-auto p-0 rounded-2xl border-border/70 shadow-[var(--shadow-card)] bg-popover">
-          <Calendar
-            mode="single"
-            selected={selected}
-            onSelect={(dd) => {
-              if (!dd) return;
-              const iso = `${dd.getFullYear()}-${String(dd.getMonth() + 1).padStart(2, "0")}-${String(dd.getDate()).padStart(2, "0")}`;
-              onChange(iso);
-              setOpen(false);
-            }}
-            disabled={{ before: min }}
-            locale={es}
-            initialFocus
-            className="p-3 pointer-events-auto"
-          />
-        </PopoverContent>
-      </Popover>
-      {error && <span className="text-[11px] text-destructive mt-1 block">{error}</span>}
-    </div>
   );
 }

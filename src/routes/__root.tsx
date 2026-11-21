@@ -6,6 +6,7 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -23,10 +24,7 @@ function NotFoundComponent() {
           The page you're looking for doesn't exist or has been moved.
         </p>
         <div className="mt-6">
-          <Link
-            to="/"
-            className="btn-base btn-primary"
-          >
+          <Link to="/" className="btn-base btn-primary">
             Go home
           </Link>
         </div>
@@ -35,7 +33,7 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error, reset }: ErrorComponentProps) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
@@ -61,10 +59,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           >
             Try again
           </button>
-          <a
-            href="/"
-            className="btn-base btn-secondary"
-          >
+          <a href="/" className="btn-base btn-secondary">
             Go home
           </a>
         </div>
@@ -78,14 +73,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "ConSentido — Mensajes especiales para fechas especiales" },
+      {
+        name: "description",
+        content:
+          "Crea mensajes únicos generados con IA para cumpleaños, aniversarios, graduaciones y más. Envíalos con intención.",
+      },
+      { name: "author", content: "ConSentido" },
+      { property: "og:title", content: "ConSentido — Mensajes especiales" },
+      {
+        property: "og:description",
+        content: "Mensajes únicos con IA para las fechas que importan.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:site", content: "@ConSentido" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -96,7 +98,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap",
       },
     ],
-
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -106,7 +107,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="es">
       <head>
         <HeadContent />
       </head>
@@ -129,4 +130,3 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
-

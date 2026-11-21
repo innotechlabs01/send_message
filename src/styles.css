@@ -47,16 +47,16 @@
 
   /* Light, airy canvas */
   --background: oklch(0.99 0.003 240);
-  --foreground: oklch(0.20 0.03 260);
+  --foreground: oklch(0.2 0.03 260);
 
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.20 0.03 260);
+  --card-foreground: oklch(0.2 0.03 260);
 
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.20 0.03 260);
+  --popover-foreground: oklch(0.2 0.03 260);
 
   /* Electric azure — reserved for CTAs and accents */
-  --primary: oklch(0.58 0.20 250);
+  --primary: oklch(0.58 0.2 250);
   --primary-foreground: oklch(0.99 0.003 240);
   --primary-soft: oklch(0.78 0.12 245);
 
@@ -64,29 +64,32 @@
   --secondary-foreground: oklch(0.25 0.03 260);
 
   --muted: oklch(0.97 0.006 240);
-  --muted-foreground: oklch(0.50 0.02 260);
+  --muted-foreground: oklch(0.5 0.02 260);
 
   --accent: oklch(0.95 0.02 245);
-  --accent-foreground: oklch(0.30 0.05 255);
+  --accent-foreground: oklch(0.3 0.05 255);
 
-  --destructive: oklch(0.60 0.22 25);
+  --destructive: oklch(0.6 0.22 25);
   --destructive-foreground: oklch(0.99 0.003 240);
 
   --border: oklch(0.92 0.008 250);
   --input: oklch(0.98 0.005 240);
-  --ring: oklch(0.58 0.20 250);
+  --ring: oklch(0.58 0.2 250);
 
-  --gradient-primary: linear-gradient(135deg, oklch(0.58 0.20 250), oklch(0.62 0.20 270));
+  --gradient-primary: linear-gradient(135deg, oklch(0.58 0.2 250), oklch(0.62 0.2 270));
 
-  --shadow-glow: 0 12px 40px -12px oklch(0.58 0.20 250 / 0.45);
-  --shadow-card: 0 12px 40px -20px oklch(0.30 0.10 260 / 0.18);
-  --shadow-soft: 0 4px 20px -8px oklch(0.30 0.10 260 / 0.10);
+  --shadow-glow: 0 12px 40px -12px oklch(0.58 0.2 250 / 0.45);
+  --shadow-card: 0 12px 40px -20px oklch(0.3 0.1 260 / 0.18);
+  --shadow-soft: 0 4px 20px -8px oklch(0.3 0.1 260 / 0.1);
 }
 
 @layer base {
-  * { border-color: var(--color-border); }
+  * {
+    border-color: var(--color-border);
+  }
 
-  html, body {
+  html,
+  body {
     background: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
@@ -95,13 +98,16 @@
 
   body {
     background-image:
-      radial-gradient(ellipse 80% 50% at 50% -10%, oklch(0.58 0.20 250 / 0.08), transparent 60%),
-      radial-gradient(ellipse 60% 40% at 100% 30%, oklch(0.62 0.20 270 / 0.05), transparent 60%);
+      radial-gradient(ellipse 80% 50% at 50% -10%, oklch(0.58 0.2 250 / 0.08), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 100% 30%, oklch(0.62 0.2 270 / 0.05), transparent 60%);
     background-attachment: fixed;
     min-height: 100vh;
   }
 
-  h1, h2, h3, h4 {
+  h1,
+  h2,
+  h3,
+  h4 {
     font-family: var(--font-display);
     letter-spacing: -0.02em;
   }
@@ -131,8 +137,11 @@
   /* Duotone icon wrapper: two shades of blue */
   .icon-duotone {
     color: var(--color-primary);
-    background: linear-gradient(135deg, oklch(0.58 0.20 250 / 0.12), oklch(0.78 0.12 245 / 0.22));
-    transition: background 0.35s ease, color 0.35s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    background: linear-gradient(135deg, oklch(0.58 0.2 250 / 0.12), oklch(0.78 0.12 245 / 0.22));
+    transition:
+      background 0.35s ease,
+      color 0.35s ease,
+      transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .icon-duotone svg {
     stroke: var(--color-primary);
@@ -152,12 +161,24 @@
   }
 
   /* Per-category accent colors */
-  .cat-cumpleanos { --cat: oklch(0.70 0.19 350); }
-  .cat-graduacion { --cat: oklch(0.74 0.16 75); }
-  .cat-aniversario { --cat: oklch(0.62 0.22 25); }
-  .cat-boda { --cat: oklch(0.58 0.20 295); }
-  .cat-nacimiento { --cat: oklch(0.70 0.14 220); }
-  .cat-amistad { --cat: oklch(0.68 0.17 150); }
+  .cat-cumpleanos {
+    --cat: oklch(0.7 0.19 350);
+  }
+  .cat-graduacion {
+    --cat: oklch(0.74 0.16 75);
+  }
+  .cat-aniversario {
+    --cat: oklch(0.62 0.22 25);
+  }
+  .cat-boda {
+    --cat: oklch(0.58 0.2 295);
+  }
+  .cat-nacimiento {
+    --cat: oklch(0.7 0.14 220);
+  }
+  .cat-amistad {
+    --cat: oklch(0.68 0.17 150);
+  }
 
   /* Default: inverted of hover — icon in category color over a soft tint */
   .icon-duotone[data-cat] {
@@ -165,7 +186,9 @@
     background: color-mix(in oklab, var(--cat) 14%, transparent);
     box-shadow: none;
   }
-  .icon-duotone[data-cat] svg { stroke: currentColor; }
+  .icon-duotone[data-cat] svg {
+    stroke: currentColor;
+  }
   /* Hover: solid fill in category color, icon turns white */
   .group:hover .icon-duotone[data-cat],
   button:hover .icon-duotone[data-cat] {
@@ -174,7 +197,9 @@
     box-shadow: 0 10px 28px -12px color-mix(in oklab, var(--cat) 55%, transparent);
   }
   .group:hover .icon-duotone[data-cat] svg,
-  button:hover .icon-duotone[data-cat] svg { stroke: #fff; }
+  button:hover .icon-duotone[data-cat] svg {
+    stroke: #fff;
+  }
 
   /* Filled input state: green border once value is present */
   .input-filled {
@@ -183,37 +208,57 @@
   }
 
   @keyframes float-soft {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-6px); }
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-6px);
+    }
   }
-  .animate-float { animation: float-soft 6s ease-in-out infinite; }
+  .animate-float {
+    animation: float-soft 6s ease-in-out infinite;
+  }
 
   @keyframes rise-in {
-    from { opacity: 0; transform: translateY(12px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
-  .animate-rise { animation: rise-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-rise {
+    animation: rise-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
 
   @keyframes shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
   }
   .animate-shimmer {
-    background: linear-gradient(90deg, transparent, oklch(0.58 0.20 250 / 0.08), transparent);
+    background: linear-gradient(90deg, transparent, oklch(0.58 0.2 250 / 0.08), transparent);
     background-size: 200% 100%;
     animation: shimmer 2s linear infinite;
   }
 
   /* Cards: clean default, blue glow only on hover */
   .step-card {
-    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-                box-shadow 0.35s ease,
-                border-color 0.35s ease;
+    transition:
+      transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.35s ease,
+      border-color 0.35s ease;
     box-shadow: var(--shadow-soft);
   }
   .step-card:hover {
     transform: translateY(-3px);
-    border-color: oklch(0.58 0.20 250 / 0.35);
+    border-color: oklch(0.58 0.2 250 / 0.35);
     box-shadow: var(--shadow-glow);
   }
 
@@ -233,12 +278,19 @@
     font-size: 0.95rem;
     line-height: 1;
     cursor: pointer;
-    transition: background 0.25s ease, color 0.25s ease,
-                border-color 0.25s ease, box-shadow 0.25s ease,
-                filter 0.25s ease, transform 0.25s ease;
+    transition:
+      background 0.25s ease,
+      color 0.25s ease,
+      border-color 0.25s ease,
+      box-shadow 0.25s ease,
+      filter 0.25s ease,
+      transform 0.25s ease;
     white-space: nowrap;
   }
-  .btn-base:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-base:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 
   .btn-primary {
     background: var(--color-primary);
@@ -246,7 +298,9 @@
     border: 1px solid transparent;
     box-shadow: var(--shadow-glow);
   }
-  .btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+  .btn-primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
 
   .btn-secondary {
     background: var(--color-card);
@@ -256,6 +310,6 @@
   }
   .btn-secondary:hover:not(:disabled) {
     background: color-mix(in oklab, var(--color-primary) 6%, var(--color-card));
-    border-color: oklch(0.58 0.20 250 / 0.35);
+    border-color: oklch(0.58 0.2 250 / 0.35);
   }
 }

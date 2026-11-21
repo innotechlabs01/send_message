@@ -1,8 +1,8 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Loader2, Lock, Mail, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { adminLogin, getAdminSession } from "@/lib/admin-auth";
+import { adminLogin, getAdminSession, verifyAdminSession } from "@/lib/admin-auth";
 import { StepShell } from "@/components/StepShell";
 
 export const Route = createFileRoute("/admin/login")({
@@ -16,12 +16,22 @@ function AdminLogin() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getAdminSession()));
 
-  // Redirigir si ya hay sesión
-  const session = getAdminSession();
-  if (session) {
-    navigate({ to: "/admin" });
-    return null;
+  useEffect(() => {
+    let active = true;
+    verifyAdminSession().then((user) => {
+      if (active && user) {
+        setIsAuthenticated(true);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (isAuthenticated) {
+    return <Navigate to="/admin" />;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -56,7 +66,9 @@ function AdminLogin() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-1.5">Correo electrónico</label>
+              <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-1.5">
+                Correo electrónico
+              </label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/50" />
                 <input
@@ -72,7 +84,9 @@ function AdminLogin() {
             </div>
 
             <div>
-              <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-1.5">Contraseña</label>
+              <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-1.5">
+                Contraseña
+              </label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/50" />
                 <input

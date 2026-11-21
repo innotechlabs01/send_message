@@ -10,10 +10,34 @@ export type Category = {
 
 // 5 categorías del documento original (eliminadas: boda, nacimiento, amistad)
 export const CATEGORIES: Category[] = [
-  { id: "cumpleanos", label: "Cumpleaños", icon: "Cake", description: "Celebrar un año más", accent: "cumpleanos" },
-  { id: "graduacion", label: "Graduación", icon: "GraduationCap", description: "Un logro académico", accent: "graduacion" },
-  { id: "aniversario", label: "Aniversario", icon: "Heart", description: "Tiempo compartido", accent: "aniversario" },
-  { id: "luto", label: "Luto", icon: "Flower", description: "Acompañar en el duelo", accent: "luto" },
+  {
+    id: "cumpleanos",
+    label: "Cumpleaños",
+    icon: "Cake",
+    description: "Celebrar un año más",
+    accent: "cumpleanos",
+  },
+  {
+    id: "graduacion",
+    label: "Graduación",
+    icon: "GraduationCap",
+    description: "Un logro académico",
+    accent: "graduacion",
+  },
+  {
+    id: "aniversario",
+    label: "Aniversario",
+    icon: "Heart",
+    description: "Tiempo compartido",
+    accent: "aniversario",
+  },
+  {
+    id: "luto",
+    label: "Luto",
+    icon: "Flower",
+    description: "Acompañar en el duelo",
+    accent: "luto",
+  },
   { id: "amor", label: "Amor", icon: "Gift", description: "Expresar cariño", accent: "amor" },
 ];
 
@@ -65,15 +89,23 @@ const listeners = new Set<() => void>();
 const STORAGE_KEY = "sentido-wizard-v2";
 let snapshot: WizardSnapshot = { ...initial, hydrated: false };
 
-function notify() { listeners.forEach((l) => l()); }
-function syncSnapshot() { snapshot = { ...state, hydrated }; }
+function notify() {
+  listeners.forEach((l) => l());
+}
+function syncSnapshot() {
+  snapshot = { ...state, hydrated };
+}
 function persist() {
   if (typeof window === "undefined") return;
   window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 const serverSnapshot: WizardSnapshot = { ...initial, hydrated: false };
-function readSnapshot(): WizardSnapshot { return snapshot; }
-function readServerSnapshot(): WizardSnapshot { return serverSnapshot; }
+function readSnapshot(): WizardSnapshot {
+  return snapshot;
+}
+function readServerSnapshot(): WizardSnapshot {
+  return serverSnapshot;
+}
 
 function newId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -160,7 +192,9 @@ export const wizard = {
 
 export function useWizard() {
   const s = useSyncExternalStore(wizard.subscribe, readSnapshot, readServerSnapshot);
-  useEffect(() => { wizard.hydrate(); }, []);
+  useEffect(() => {
+    wizard.hydrate();
+  }, []);
   return s;
 }
 

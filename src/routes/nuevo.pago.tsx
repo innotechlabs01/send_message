@@ -1,28 +1,30 @@
-import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
-import { useState, useEffect, useCallback } from "react";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import * as LucideIcons from "lucide-react";
-import { Lock, CreditCard, Loader2, CheckCircle2, ArrowRight, Shield, AlertCircle, RotateCcw } from "lucide-react";
+import {
+  Lock,
+  CreditCard,
+  Loader2,
+  ArrowRight,
+  Shield,
+  AlertCircle,
+  RotateCcw,
+} from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { wizard, useWizard, getCategory, PRICE_PER_MESSAGE } from "@/lib/wizard-store";
+import { useWizard, getCategory, PRICE_PER_MESSAGE } from "@/lib/wizard-store";
 import { StepHeader } from "@/components/StepHeader";
 import { StepShell } from "@/components/StepShell";
-import { createPaymentIntent, type BoldPayer } from "@/lib/bold";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-interface ExistingPayment {
-  reference_id: string;
-  state: string;
-  bold_status: string;
-  gateway_reason?: string;
-  gateway_raw?: Record<string, unknown>;
-  created_at: string;
-}
+import {
+  buildCartSignature,
+  checkExistingPayment,
+  computeExpectedTotalCop,
+  createPaymentIntent,
+  generateIdempotencyKey,
+  mapCartItemsForPayment,
+  type ExistingPaymentSummary,
+} from "@/lib/bold";
 
 export const Route = createFileRoute("/nuevo/pago")({
   head: () => ({ meta: [{ title: "Pago — ConSentido" }] }),
@@ -30,44 +32,28 @@ export const Route = createFileRoute("/nuevo/pago")({
 });
 
 function PaymentStep() {
-  const navigate = useNavigate();
   const state = useWizard();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [creatingIntent, setCreatingIntent] = useState(false);
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
-  const [existingPayment, setExistingPayment] = useState<ExistingPayment | null>(null);
+  const [existingPayment, setExistingPayment] = useState<ExistingPaymentSummary | null>(null);
   const [checkingExisting, setCheckingExisting] = useState(true);
   const [retrying, setRetrying] = useState(false);
 
-  // Check for existing payment on mount
+  // Check for existing payment on mount via server edge function (no direct anon table query / no PII leak)
   useEffect(() => {
     const checkExisting = async () => {
       if (!state.hydrated || state.items.length === 0) return;
-      
-      const firstItem = state.items[0];
-      const cartSignature = `${firstItem.categoryId}-${firstItem.recipient}-${firstItem.phoneTo}`;
-      
+
+      const mappedItems = mapCartItemsForPayment(state.items, "");
+      const cartSignature = buildCartSignature(mappedItems);
+
       try {
-        const { data } = await supabase
-          .from("payments")
-          .select("*")
-          .ilike("gateway_raw->>cartSignature", cartSignature)
-          .order("created_at", { ascending: false })
-          .limit(1);
-        
-        if (data && data.length > 0) {
-          const payment = data[0];
-          if (["pending", "failure", "gateway_blocked"].includes(payment.state)) {
-            setExistingPayment(payment as ExistingPayment);
-            if (payment.gateway_raw?.customer) {
-              const cust = payment.gateway_raw.customer as { name?: string; email?: string; phone?: string };
-              if (cust.name) setName(cust.name);
-              if (cust.email) setEmail(cust.email);
-              if (cust.phone) setPhone(cust.phone);
-            }
-          }
+        const payment = await checkExistingPayment(cartSignature);
+        if (payment && ["pending", "failure", "gateway_blocked"].includes(payment.state)) {
+          setExistingPayment(payment);
         }
       } catch (e) {
         console.warn("Could not check existing payment:", e);
@@ -81,7 +67,7 @@ function PaymentStep() {
   if (!state.hydrated) return <StepShell />;
   if (state.items.length === 0) return <Navigate to="/nuevo/carrito" />;
 
-  const total = state.items.length * PRICE_PER_MESSAGE;
+  const total = computeExpectedTotalCop(state.items.length);
 
   // Validation helpers
   const isPersonalInfoValid = email.includes("@") && name.trim().length > 0;
@@ -98,23 +84,19 @@ function PaymentStep() {
     setCreatingIntent(true);
 
     try {
-      const referenceId = `MSG-${Date.now()}`;
+      const idempotencyKey = generateIdempotencyKey();
+      const referenceId = `MSG-${Date.now()}-${idempotencyKey.slice(0, 8)}`;
       const callbackUrl = `${window.location.origin}/nuevo/confirmacion`;
-      const firstItem = state.items[0];
+      const items = mapCartItemsForPayment(state.items, name.trim(), phone.trim());
 
       const intentResult = await createPaymentIntent({
         referenceId,
+        idempotencyKey,
         amount: total,
         description: `ConSentido - ${state.items.length} mensaje(s)`,
         callbackUrl,
-        categoryId: firstItem.categoryId,
-        messageText: firstItem.message,
-        recipientName: firstItem.recipient,
-        recipientPhone: firstItem.phoneTo,
-        senderName: firstItem.sender || name,
-        senderPhone: firstItem.phoneFrom || phone,
-        sendDate: firstItem.sendDate,
-        customer: { name, email, phone },
+        items,
+        customer: { name: name.trim(), email: email.trim(), phone: phone.trim() },
       });
 
       if (intentResult.error) throw new Error(intentResult.error);
@@ -125,8 +107,6 @@ function PaymentStep() {
         return;
       }
 
-      // If no redirect URL, we need to process payment directly
-      // But Bold should always return a redirect_url for the hosted payment page
       toast.error("No se pudo obtener la URL de pago. Intenta nuevamente.");
     } catch (err) {
       console.error("Payment error:", err);
@@ -140,23 +120,23 @@ function PaymentStep() {
     if (!existingPayment) return;
     setRetrying(true);
     try {
-      const referenceId = `MSG-${Date.now()}-retry`;
+      const idempotencyKey = generateIdempotencyKey();
+      const referenceId = `MSG-${Date.now()}-${idempotencyKey.slice(0, 8)}-retry`;
       const callbackUrl = `${window.location.origin}/nuevo/confirmacion`;
-      const firstItem = state.items[0];
+      const items = mapCartItemsForPayment(state.items, name.trim(), phone.trim());
 
       const intentResult = await createPaymentIntent({
         referenceId,
+        idempotencyKey,
         amount: total,
         description: `ConSentido - ${state.items.length} mensaje(s) (reintento)`,
         callbackUrl,
-        categoryId: firstItem.categoryId,
-        messageText: firstItem.message,
-        recipientName: firstItem.recipient,
-        recipientPhone: firstItem.phoneTo,
-        senderName: firstItem.sender || name,
-        senderPhone: firstItem.phoneFrom || phone,
-        sendDate: firstItem.sendDate,
-        customer: { name, email, phone },
+        items,
+        customer: {
+          name: name.trim() || undefined,
+          email: email.trim() || undefined,
+          phone: phone.trim() || undefined,
+        },
       });
 
       if (intentResult.error) throw new Error(intentResult.error);
@@ -182,32 +162,39 @@ function PaymentStep() {
   }
 
   // Pre-compute render pieces to satisfy TanStack router generator
-  const isRetryable = existingPayment && ["pending", "failure", "gateway_blocked"].includes(existingPayment.state);
-  const statusIcon = existingPayment?.state === "pending"
-    ? <Loader2 className="w-6 h-6 animate-spin text-primary" />
-    : existingPayment?.state === "failure"
-    ? <AlertCircle className="w-6 h-6 text-red-500" />
-    : existingPayment?.state === "gateway_blocked"
-    ? <Shield className="w-6 h-6 text-amber-500" />
-    : null;
-  const statusTitle = existingPayment?.state === "pending"
-    ? "Pago pendiente de confirmación"
-    : existingPayment?.state === "failure"
-    ? "Pago fallido"
-    : existingPayment?.state === "gateway_blocked"
-    ? "Pago bloqueado por la pasarela"
-    : "";
+  const isRetryable =
+    existingPayment && ["pending", "failure", "gateway_blocked"].includes(existingPayment.state);
+  const statusIcon =
+    existingPayment?.state === "pending" ? (
+      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+    ) : existingPayment?.state === "failure" ? (
+      <AlertCircle className="w-6 h-6 text-red-500" />
+    ) : existingPayment?.state === "gateway_blocked" ? (
+      <Shield className="w-6 h-6 text-amber-500" />
+    ) : null;
+  const statusTitle =
+    existingPayment?.state === "pending"
+      ? "Pago pendiente de confirmación"
+      : existingPayment?.state === "failure"
+        ? "Pago fallido"
+        : existingPayment?.state === "gateway_blocked"
+          ? "Pago bloqueado por la pasarela"
+          : "";
 
   // Button icon/text for create intent
-  const createBtnIcon = creatingIntent
-    ? <Loader2 className="w-4 h-4 animate-spin" />
-    : <CreditCard className="w-4 h-4" />;
+  const createBtnIcon = creatingIntent ? (
+    <Loader2 className="w-4 h-4 animate-spin" />
+  ) : (
+    <CreditCard className="w-4 h-4" />
+  );
   const createBtnText = creatingIntent ? "Creando orden..." : "Pagar con Bold";
 
   // Button icon/text for retry
-  const retryBtnIcon = retrying
-    ? <Loader2 className="w-4 h-4 animate-spin mr-2" />
-    : <RotateCcw className="w-4 h-4 mr-2" />;
+  const retryBtnIcon = retrying ? (
+    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+  ) : (
+    <RotateCcw className="w-4 h-4 mr-2" />
+  );
   const retryBtnText = retrying ? "Reintentando..." : "Reintentar pago";
 
   // Single return with all conditional rendering
@@ -221,7 +208,8 @@ function PaymentStep() {
             </div>
             <h2 className="text-3xl font-semibold tracking-tight">¡Orden creada!</h2>
             <p className="mt-3 text-muted-foreground">
-              Te llevaremos a la pasarela segura de <span className="text-foreground font-medium">Bold</span> para completar el pago.
+              Te llevaremos a la pasarela segura de{" "}
+              <span className="text-foreground font-medium">Bold</span> para completar el pago.
             </p>
             <div className="mt-6 p-4 glass rounded-2xl text-left space-y-2">
               <div className="flex justify-between text-sm">
@@ -260,10 +248,13 @@ function PaymentStep() {
               <div>
                 <p className="font-medium">{statusTitle}</p>
                 <p className="text-sm text-muted-foreground">
-                  Referencia: {existingPayment.reference_id} · {new Date(existingPayment.created_at).toLocaleString("es-CO")}
+                  Referencia: {existingPayment.reference_id} ·{" "}
+                  {new Date(existingPayment.created_at).toLocaleString("es-CO")}
                 </p>
                 {existingPayment.gateway_reason && (
-                  <p className="text-sm text-amber-700 mt-1">Motivo: {existingPayment.gateway_reason}</p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    Motivo: {existingPayment.gateway_reason}
+                  </p>
                 )}
               </div>
             </div>
@@ -312,12 +303,33 @@ function PaymentStep() {
               </div>
 
               <div className="space-y-4 mb-6">
-                <Input label="Nombre completo" placeholder="Como aparece en tu documento" value={name} onChange={setName} />
-                <Input label="Correo electrónico" placeholder="tucorreo@ejemplo.com" value={email} onChange={setEmail} type="email" />
-                <Input label="Teléfono" placeholder="3001234567" value={phone} onChange={setPhone} type="tel" />
+                <Input
+                  label="Nombre completo"
+                  placeholder="Como aparece en tu documento"
+                  value={name}
+                  onChange={setName}
+                />
+                <Input
+                  label="Correo electrónico"
+                  placeholder="tucorreo@ejemplo.com"
+                  value={email}
+                  onChange={setEmail}
+                  type="email"
+                />
+                <Input
+                  label="Teléfono"
+                  placeholder="3001234567"
+                  value={phone}
+                  onChange={setPhone}
+                  type="tel"
+                />
               </div>
 
-              <button onClick={createIntent} disabled={creatingIntent || !isFormValid} className="mt-4 w-full btn-base btn-primary">
+              <button
+                onClick={createIntent}
+                disabled={creatingIntent || !isFormValid}
+                className="mt-4 w-full btn-base btn-primary"
+              >
                 {createBtnIcon} {createBtnText}
               </button>
               {!isFormValid && !creatingIntent && (
@@ -326,29 +338,46 @@ function PaymentStep() {
                 </p>
               )}
               <p className="text-xs text-muted-foreground mt-4 text-center">
-                Al continuar serás redirigido a Bold Colombia donde podrás elegir tu método de pago (tarjeta, PSE, Nequi, etc.) y pagar de forma segura.
+                Al continuar serás redirigido a Bold Colombia donde podrás elegir tu método de pago
+                (tarjeta, PSE, Nequi, etc.) y pagar de forma segura.
               </p>
             </section>
 
             <aside className="glass rounded-3xl p-7 h-fit animate-rise">
-              <h3 className="font-display text-lg font-semibold mb-4">Resumen ({state.items.length})</h3>
+              <h3 className="font-display text-lg font-semibold mb-4">
+                Resumen ({state.items.length})
+              </h3>
               <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
                 {state.items.map((it) => {
                   const c = getCategory(it.categoryId);
                   if (!c) return null;
-                  const Icon = (LucideIcons as unknown as Record<string, LucideIcons.LucideIcon>)[c.icon];
+                  const Icon = (LucideIcons as unknown as Record<string, LucideIcons.LucideIcon>)[
+                    c.icon
+                  ];
                   return (
-                    <div key={it.id} className={`cat-${c.accent} rounded-2xl border border-border/50 bg-secondary/40 p-3 flex gap-3`}>
-                      <span data-cat className="shrink-0 w-9 h-9 rounded-xl icon-duotone grid place-items-center">
+                    <div
+                      key={it.id}
+                      className={`cat-${c.accent} rounded-2xl border border-border/50 bg-secondary/40 p-3 flex gap-3`}
+                    >
+                      <span
+                        data-cat
+                        className="shrink-0 w-9 h-9 rounded-xl icon-duotone grid place-items-center"
+                      >
                         {Icon ? <Icon className="w-4 h-4" /> : null}
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-medium truncate">{c.label} · {it.recipient}</span>
-                          <span className="text-xs text-muted-foreground">${PRICE_PER_MESSAGE.toLocaleString("es-CO")}</span>
+                          <span className="text-sm font-medium truncate">
+                            {c.label} · {it.recipient}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            ${PRICE_PER_MESSAGE.toLocaleString("es-CO")}
+                          </span>
                         </div>
                         <p className="text-xs text-muted-foreground truncate">
-                          {format(new Date(it.sendDate + "T00:00:00"), "d MMM yyyy", { locale: es })}
+                          {format(new Date(it.sendDate + "T00:00:00"), "d MMM yyyy", {
+                            locale: es,
+                          })}
                         </p>
                       </div>
                     </div>
@@ -359,7 +388,8 @@ function PaymentStep() {
               <div className="flex items-baseline justify-between">
                 <span className="text-muted-foreground text-sm">Total</span>
                 <span className="font-display text-2xl font-semibold">
-                  ${total.toLocaleString("es-CO")} <span className="text-xs text-muted-foreground">COP</span>
+                  ${total.toLocaleString("es-CO")}{" "}
+                  <span className="text-xs text-muted-foreground">COP</span>
                 </span>
               </div>
             </aside>
@@ -370,7 +400,19 @@ function PaymentStep() {
   );
 }
 
-function Input({ label, value, onChange, placeholder, type = "text" }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
+function Input({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
   return (
     <label className="block">
       <span className="text-xs uppercase tracking-widest text-muted-foreground">{label}</span>
