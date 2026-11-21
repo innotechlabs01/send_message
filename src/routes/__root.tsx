@@ -45,12 +45,8 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
-        </p>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">Uy, algo salió mal</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Vuelve a intentar o regresa al inicio.</p>
         {errorMessage && (
           <p className="mt-3 rounded-md bg-muted px-3 py-2 font-mono text-xs text-muted-foreground break-words">
             {errorMessage}
@@ -64,10 +60,10 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
             }}
             className="btn-base btn-primary"
           >
-            Try again
+            Volver a intentar
           </button>
           <a href="/" className="btn-base btn-secondary">
-            Go home
+            Ir al inicio
           </a>
         </div>
       </div>

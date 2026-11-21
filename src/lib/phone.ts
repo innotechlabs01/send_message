@@ -3,6 +3,7 @@ export function cleanPhoneDigits(raw: string): string {
   if (digits.length > 10 && digits.startsWith("57")) {
     digits = digits.slice(2);
   }
+  digits = digits.replace(/^[^3]+/, "");
   return digits.slice(0, 10);
 }
 

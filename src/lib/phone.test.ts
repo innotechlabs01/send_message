@@ -27,10 +27,12 @@ describe("phone utility unit tests", () => {
       expect(cleanPhoneDigits("30012345678999")).toBe("3001234567");
     });
 
-    it("returns partial or empty digits as appropriate", () => {
+    it("returns partial or empty digits as appropriate and blocks non-3 start", () => {
       expect(cleanPhoneDigits("")).toBe("");
       expect(cleanPhoneDigits("300")).toBe("300");
       expect(cleanPhoneDigits("abc")).toBe("");
+      expect(cleanPhoneDigits("2")).toBe("");
+      expect(cleanPhoneDigits("2103001234")).toBe("3001234");
     });
   });
 
