@@ -209,6 +209,17 @@ export function NewMessageDialog({
     void loadMessagesForCategory(form.categoryId, source, offset, aiSeed, lastDbMessages);
   }
 
+  function updateField<K extends keyof Form>(field: K, val: Form[K]) {
+    setForm((f) => ({ ...f, [field]: val }));
+    if (errors[field]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  }
+
   function submit() {
     const r = messageDetailsSchema.safeParse({
       recipient: form.recipient,
@@ -259,7 +270,7 @@ export function NewMessageDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="p-0 gap-0 border-0 bg-transparent shadow-none max-w-2xl w-[calc(100%-1.5rem)]">
-        <div className="bg-card rounded-[28px] overflow-hidden border border-border/60 shadow-2xl flex flex-col max-h-[88vh]">
+        <div className="bg-card rounded-[28px] overflow-hidden border border-border/60 shadow-2xl flex flex-col max-h-[88dvh]">
           <DialogHeader className="px-6 pt-5 pb-3">
             <DialogTitle className="font-display text-xl tracking-tight">
               {editingItem ? "Editar mensaje" : "Nuevo mensaje"}
@@ -290,9 +301,10 @@ export function NewMessageDialog({
                   const selected = form.categoryId === cat.id;
                   return (
                     <button
+                      type="button"
                       key={cat.id}
                       onClick={() => goStep2(cat.id)}
-                      className={`cat-${cat.accent} glass step-card rounded-2xl p-4 text-left group ${selected ? "!border-primary/40" : ""}`}
+                      className={`cat-${cat.accent} glass step-card rounded-2xl p-4 text-left group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? "!border-primary/40" : ""}`}
                     >
                       <div
                         data-cat
@@ -345,24 +357,38 @@ export function NewMessageDialog({
                     <div className="border-t border-border/60 my-3" />
                   </>
                 )}
-                {loading && fresh.length === 0
-                  ? Array.from({ length: 5 }).map((_, i) => (
-                      <div
-                        key={i}
-                        className="bg-secondary/50 rounded-xl h-16 relative overflow-hidden"
-                      >
-                        <div className="absolute inset-0 animate-shimmer" />
-                      </div>
-                    ))
-                  : fresh.map((m) => (
-                      <MessageOptionCard
-                        key={m}
-                        message={m}
-                        compact
-                        onSelect={() => pickMessage(m)}
-                        onTogglePin={() => togglePin(m)}
-                      />
-                    ))}
+                {loading && fresh.length === 0 ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="bg-secondary/50 rounded-xl h-16 relative overflow-hidden"
+                    >
+                      <div className="absolute inset-0 animate-shimmer" />
+                    </div>
+                  ))
+                ) : !loading && fresh.length === 0 ? (
+                  <div className="glass rounded-xl p-6 text-center space-y-3">
+                    <p className="text-muted-foreground text-sm">No pudimos cargar mensajes</p>
+                    <button
+                      type="button"
+                      onClick={refresh}
+                      className="btn-base btn-secondary mx-auto cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Reintentar
+                    </button>
+                  </div>
+                ) : (
+                  fresh.map((m) => (
+                    <MessageOptionCard
+                      key={m}
+                      message={m}
+                      compact
+                      onSelect={() => pickMessage(m)}
+                      onTogglePin={() => togglePin(m)}
+                    />
+                  ))
+                )}
               </div>
             )}
 
@@ -382,7 +408,7 @@ export function NewMessageDialog({
                   <MessageInput
                     label="Para"
                     value={form.recipient}
-                    onChange={(v) => setForm((f) => ({ ...f, recipient: v }))}
+                    onChange={(v) => updateField("recipient", v)}
                     error={errors.recipient}
                     placeholder="Destinatario"
                     compact
@@ -390,7 +416,7 @@ export function NewMessageDialog({
                   <MessageInput
                     label="De"
                     value={form.sender}
-                    onChange={(v) => setForm((f) => ({ ...f, sender: v }))}
+                    onChange={(v) => updateField("sender", v)}
                     error={errors.sender}
                     placeholder="Tu nombre"
                     compact
@@ -398,25 +424,27 @@ export function NewMessageDialog({
                   <MessageInput
                     label="Cel. remitente"
                     value={form.phoneFrom}
-                    onChange={(v) => setForm((f) => ({ ...f, phoneFrom: formatPhone(v) }))}
+                    onChange={(v) => updateField("phoneFrom", formatPhone(v))}
                     error={errors.phoneFrom}
-                    placeholder="300-000-00-00"
+                    placeholder="Ej: 300 123 4567"
                     phone
+                    hint="Celular Colombia · 10 dígitos, empieza por 3"
                     compact
                   />
                   <MessageInput
                     label="Cel. destinatario"
                     value={form.phoneTo}
-                    onChange={(v) => setForm((f) => ({ ...f, phoneTo: formatPhone(v) }))}
+                    onChange={(v) => updateField("phoneTo", formatPhone(v))}
                     error={errors.phoneTo}
-                    placeholder="300-000-00-00"
+                    placeholder="Ej: 300 123 4567"
                     phone
+                    hint="Celular Colombia · 10 dígitos, empieza por 3"
                     compact
                   />
                   <div className="sm:col-span-2">
                     <DateField
                       value={form.sendDate}
-                      onChange={(iso) => setForm((f) => ({ ...f, sendDate: iso }))}
+                      onChange={(iso) => updateField("sendDate", iso)}
                       error={errors.sendDate}
                       compact
                     />
@@ -428,6 +456,7 @@ export function NewMessageDialog({
 
           <DialogFooter className="px-5 py-4 border-t border-border/60 flex flex-col-reverse sm:flex-row gap-2 sm:justify-between">
             <button
+              type="button"
               onClick={() => {
                 if (step === 1) onOpenChange(false);
                 else setStep((s) => (s === 3 ? 2 : 1));
@@ -440,6 +469,7 @@ export function NewMessageDialog({
 
             {step === 2 && (
               <button
+                type="button"
                 onClick={refresh}
                 disabled={loading}
                 className="btn-base btn-secondary w-full sm:w-auto"
@@ -454,7 +484,11 @@ export function NewMessageDialog({
             )}
 
             {step === 3 && (
-              <button onClick={submit} className="group btn-base btn-primary w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={submit}
+                className="group btn-base btn-primary w-full sm:w-auto"
+              >
                 {editingItem ? "Guardar cambios" : "Agregar al carrito"}
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
               </button>

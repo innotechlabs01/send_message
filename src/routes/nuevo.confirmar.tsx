@@ -23,10 +23,17 @@ function ConfirmStep() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [leaving, setLeaving] = useState(false);
 
-  if (!state.hydrated || leaving) return <StepShell withFooter />;
+  if (!state.hydrated) return <StepShell withFooter />;
   if (!category || !d.message) return <Navigate to="/nuevo/categoria" />;
 
   function field(name: keyof typeof d, value: string) {
+    if (errors[name]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
     wizard.setDraft({ [name]: value });
   }
 
@@ -95,8 +102,9 @@ function ConfirmStep() {
               <h3 className="font-display text-lg font-semibold">Vista previa</h3>
             </div>
             <button
+              type="button"
               onClick={() => navigate({ to: "/nuevo/mensaje" })}
-              className="text-sm inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+              className="text-sm inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors p-2 -m-2 rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Pencil className="w-3.5 h-3.5" /> Cambiar
             </button>
@@ -137,7 +145,7 @@ function ConfirmStep() {
             />
             <MessageInput
               label="Celular del remitente"
-              placeholder="300-000-00-00"
+              placeholder="Ej: 300 123 4567"
               value={d.phoneFrom}
               onChange={(v) => field("phoneFrom", formatPhone(v))}
               error={errors.phoneFrom}
@@ -145,7 +153,7 @@ function ConfirmStep() {
             />
             <MessageInput
               label="Celular del destinatario"
-              placeholder="300-000-00-00"
+              placeholder="Ej: 300 123 4567"
               value={d.phoneTo}
               onChange={(v) => field("phoneTo", formatPhone(v))}
               error={errors.phoneTo}
@@ -163,11 +171,21 @@ function ConfirmStep() {
       </div>
 
       <StepFooter>
-        <button onClick={saveAndAddAnother} className="btn-base btn-secondary w-full sm:w-auto">
+        <button
+          type="button"
+          onClick={saveAndAddAnother}
+          disabled={leaving}
+          className="btn-base btn-secondary w-full sm:w-auto"
+        >
           <Sparkles className="w-4 h-4" />
           Guardar y crear otro
         </button>
-        <button onClick={saveAndCheckout} className="group btn-base btn-primary w-full sm:w-auto">
+        <button
+          type="button"
+          onClick={saveAndCheckout}
+          disabled={leaving}
+          className="group btn-base btn-primary w-full sm:w-auto"
+        >
           Ver carrito
           <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
         </button>

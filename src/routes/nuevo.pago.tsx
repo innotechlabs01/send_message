@@ -80,7 +80,10 @@ function PaymentStep() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [nameTouched, setNameTouched] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
   const [creatingIntent, setCreatingIntent] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [existingPayment, setExistingPayment] = useState<ExistingPaymentSummary | null>(null);
   const [checkingExisting, setCheckingExisting] = useState(true);
@@ -116,6 +119,24 @@ function PaymentStep() {
 
   const total = computeExpectedTotalCop(state.items.length);
 
+  // Field-level error validation
+  const nameTrimmed = name.trim();
+  const nameError = !nameTrimmed
+    ? "Ingresa tu nombre completo"
+    : nameTrimmed.length > 120
+      ? "Máximo 120 caracteres"
+      : undefined;
+
+  const emailTrimmed = email.trim();
+  const emailSchema = z.string().email("Ingresa un correo electrónico válido");
+  const emailError = !emailTrimmed
+    ? "Ingresa tu correo electrónico"
+    : emailTrimmed.length > 254
+      ? "Máximo 254 caracteres"
+      : !emailSchema.safeParse(emailTrimmed).success
+        ? "Ingresa un correo electrónico válido"
+        : undefined;
+
   // Validation helpers
   const customerValidation = checkoutCustomerSchema.safeParse({
     name,
@@ -125,6 +146,9 @@ function PaymentStep() {
   const isFormValid = customerValidation.success;
 
   async function createIntent() {
+    setNameTouched(true);
+    setEmailTouched(true);
+
     if (existingPayment?.state === "success") {
       toast.error("Este carrito ya fue pagado.");
       return;
@@ -190,6 +214,8 @@ function PaymentStep() {
   }
 
   async function retryPayment() {
+    setNameTouched(true);
+    setEmailTouched(true);
     if (!existingPayment) return;
     if (existingPayment.state === "success") {
       toast.error("Este carrito ya fue pagado.");
@@ -260,7 +286,10 @@ function PaymentStep() {
   }
 
   function goToBold() {
-    if (redirectUrl) window.location.href = redirectUrl;
+    if (redirectUrl && !redirecting) {
+      setRedirecting(true);
+      window.location.href = redirectUrl;
+    }
   }
 
   // Pre-compute render pieces to satisfy TanStack router generator
@@ -307,6 +336,16 @@ function PaymentStep() {
   // Single return with all conditional rendering
   return (
     <StepShell>
+      {checkingExisting && !redirectUrl && (
+        <div className="glass rounded-3xl p-10 text-center animate-rise max-w-2xl mx-auto">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <h2 className="text-xl font-semibold">Verificando estado del pedido...</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Consultando si existe un pago previo para este carrito.
+          </p>
+        </div>
+      )}
+
       {redirectUrl && (
         <>
           <div className="glass rounded-3xl p-10 text-center animate-rise max-w-2xl mx-auto">
@@ -324,13 +363,31 @@ function PaymentStep() {
                 <span className="font-semibold">${total.toLocaleString("es-CO")} COP</span>
               </div>
             </div>
-            <div className="mt-8 flex justify-center gap-3">
-              <button onClick={() => setRedirectUrl(null)} className="btn-base btn-secondary">
+            <div className="mt-8 flex flex-col-reverse sm:flex-row gap-3 justify-center">
+              <button
+                type="button"
+                onClick={() => setRedirectUrl(null)}
+                disabled={redirecting}
+                className="btn-base btn-secondary"
+              >
                 <ArrowRight className="w-4 h-4 mr-2" /> Volver
               </button>
-              <button onClick={goToBold} className="btn-base btn-primary group">
-                Continuar a Bold
-                <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
+              <button
+                type="button"
+                onClick={goToBold}
+                disabled={redirecting}
+                className="btn-base btn-primary group"
+              >
+                {redirecting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" /> Redirigiendo...
+                  </>
+                ) : (
+                  <>
+                    Continuar a Bold
+                    <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
+                  </>
+                )}
               </button>
             </div>
             <p className="text-xs text-muted-foreground mt-4">
@@ -371,15 +428,9 @@ function PaymentStep() {
                 <p className="text-sm text-muted-foreground text-center">
                   Ya registramos un pago aprobado para este carrito. No es necesario pagar de nuevo.
                 </p>
-                <div className="flex gap-3">
-                  <Link
-                    to="/nuevo/confirmacion"
-                    search={{ payment_id: existingPayment.reference_id }}
-                    className="flex-1 btn-base btn-primary text-center"
-                  >
-                    Ver confirmación
-                  </Link>
+                <div className="flex flex-col-reverse sm:flex-row gap-3">
                   <button
+                    type="button"
                     onClick={() => {
                       wizard.reset();
                       setExistingPayment(null);
@@ -388,6 +439,13 @@ function PaymentStep() {
                   >
                     Limpiar carrito
                   </button>
+                  <Link
+                    to="/nuevo/confirmacion"
+                    search={{ payment_id: existingPayment.reference_id }}
+                    className="flex-1 btn-base btn-primary text-center"
+                  >
+                    Ver confirmación
+                  </Link>
                 </div>
               </div>
             )}
@@ -397,19 +455,21 @@ function PaymentStep() {
                 <p className="text-sm text-muted-foreground text-center">
                   ¿Quieres reintentar con los mismos datos o modificarlos?
                 </p>
-                <div className="flex gap-3">
+                <div className="flex flex-col-reverse sm:flex-row gap-3">
                   <button
+                    type="button"
+                    onClick={() => setExistingPayment(null)}
+                    className="flex-1 btn-base btn-secondary"
+                  >
+                    Crear nuevo pago
+                  </button>
+                  <button
+                    type="button"
                     onClick={retryPayment}
                     disabled={retrying || creatingIntent}
                     className="flex-1 btn-base btn-primary"
                   >
                     {retryBtnIcon} {retryBtnText}
-                  </button>
-                  <button
-                    onClick={() => setExistingPayment(null)}
-                    className="flex-1 btn-base btn-secondary"
-                  >
-                    Crear nuevo pago
                   </button>
                 </div>
               </div>
@@ -418,7 +478,7 @@ function PaymentStep() {
         </>
       )}
 
-      {!redirectUrl && !(existingPayment && !checkingExisting) && (
+      {!redirectUrl && !checkingExisting && !existingPayment && (
         <>
           <StepHeader
             step={4}
@@ -441,24 +501,35 @@ function PaymentStep() {
                   placeholder="Como aparece en tu documento"
                   value={name}
                   onChange={setName}
+                  onBlur={() => setNameTouched(true)}
+                  error={nameTouched ? nameError : undefined}
+                  maxLength={120}
+                  required
                 />
                 <Input
                   label="Correo electrónico"
                   placeholder="tucorreo@ejemplo.com"
                   value={email}
                   onChange={setEmail}
+                  onBlur={() => setEmailTouched(true)}
+                  error={emailTouched ? emailError : undefined}
                   type="email"
+                  maxLength={254}
+                  required
                 />
                 <Input
-                  label="Teléfono"
-                  placeholder="3001234567"
+                  label="Teléfono (opcional)"
+                  placeholder="Ej: 300 123 4567"
                   value={phone}
                   onChange={setPhone}
                   type="tel"
+                  maxLength={32}
+                  hint="Ingresa tu nombre y correo válido para continuar"
                 />
               </div>
 
               <button
+                type="button"
                 onClick={createIntent}
                 disabled={creatingIntent || !isFormValid}
                 className="mt-4 w-full btn-base btn-primary"
@@ -537,25 +608,57 @@ function Input({
   label,
   value,
   onChange,
+  onBlur,
   placeholder,
   type = "text",
+  error,
+  hint,
+  maxLength,
+  required,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  onBlur?: () => void;
   placeholder?: string;
   type?: string;
+  error?: string;
+  hint?: string;
+  maxLength?: number;
+  required?: boolean;
 }) {
   return (
     <label className="block">
-      <span className="text-xs uppercase tracking-widest text-muted-foreground">{label}</span>
+      <div className="flex justify-between items-baseline">
+        <span className="text-xs uppercase tracking-widest text-muted-foreground">
+          {label} {required && <span className="text-red-500">*</span>}
+        </span>
+        {maxLength && (
+          <span className="text-[10px] text-muted-foreground/60">
+            {value.length}/{maxLength}
+          </span>
+        )}
+      </div>
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
         placeholder={placeholder}
-        className="mt-2 w-full bg-input/60 border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary transition-colors"
+        maxLength={maxLength}
+        aria-invalid={Boolean(error)}
+        className={`mt-2 w-full bg-input/60 border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 transition-colors ${
+          error ? "border-red-500 focus:border-red-500" : "border-border focus:border-primary"
+        }`}
       />
+      {error ? (
+        <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          {error}
+        </p>
+      ) : hint ? (
+        <p className="mt-1.5 text-xs text-muted-foreground">{hint}</p>
+      ) : null}
     </label>
   );
 }

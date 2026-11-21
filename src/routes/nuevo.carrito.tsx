@@ -109,7 +109,7 @@ function CartStep() {
       {items.length === 0 ? (
         <div className="glass rounded-3xl p-10 text-center animate-rise">
           <p className="text-muted-foreground mb-6">Aún no has agregado mensajes al carrito.</p>
-          <button onClick={startNew} className="btn-base btn-primary">
+          <button type="button" onClick={startNew} className="btn-base btn-primary">
             <Sparkles className="w-4 h-4" /> Crear primer mensaje
           </button>
         </div>
@@ -128,10 +128,15 @@ function CartStep() {
       )}
 
       <StepFooter>
-        <button onClick={startNew} className="btn-base btn-secondary w-full sm:w-auto">
+        <button
+          type="button"
+          onClick={startNew}
+          className="btn-base btn-secondary w-full sm:w-auto"
+        >
           <Sparkles className="w-4 h-4" /> Generar otro mensaje
         </button>
         <button
+          type="button"
           onClick={() => navigate({ to: "/nuevo/pago" })}
           disabled={items.length === 0}
           className="group btn-base btn-primary w-full sm:w-auto"
@@ -225,14 +230,16 @@ function CartCard({
 
       <div className="flex gap-2 mt-4 pt-4 border-t border-border/50">
         <button
+          type="button"
           onClick={onEdit}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-full text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+          className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-full text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Pencil className="w-3.5 h-3.5" /> Editar
         </button>
         <button
+          type="button"
           onClick={onDelete}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-full text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+          className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-full text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Trash2 className="w-3.5 h-3.5" /> Eliminar
         </button>

@@ -74,12 +74,16 @@ function AdminLogin() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-1.5">
+              <label
+                htmlFor="admin-email"
+                className="block text-xs uppercase tracking-widest text-muted-foreground mb-1.5"
+              >
                 Correo electrónico
               </label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/50" />
                 <input
+                  id="admin-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -92,12 +96,16 @@ function AdminLogin() {
             </div>
 
             <div>
-              <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-1.5">
+              <label
+                htmlFor="admin-password"
+                className="block text-xs uppercase tracking-widest text-muted-foreground mb-1.5"
+              >
                 Contraseña
               </label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/50" />
                 <input
+                  id="admin-password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -109,7 +117,8 @@ function AdminLogin() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground transition-colors"
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-2 -m-2 cursor-pointer rounded-lg text-muted-foreground/50 hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>

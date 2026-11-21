@@ -32,7 +32,6 @@ import {
   type AdminUser,
   type AdminKpiOverview,
 } from "@/lib/admin-auth";
-import { StepShell } from "@/components/StepShell";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "Admin — ConSentido" }] }),
@@ -280,13 +279,23 @@ function AdminLayout() {
     }
   }
 
+  // Close modals on Escape key
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        if (showModal) setShowModal(false);
+        if (showChangePasswordModal) setShowChangePasswordModal(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showModal, showChangePasswordModal]);
+
   if (loading) {
     return (
-      <StepShell>
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      </StepShell>
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
     );
   }
 
@@ -295,13 +304,16 @@ function AdminLayout() {
   }
 
   return (
-    <StepShell>
+    <>
       <div className="min-h-screen">
         {/* Header */}
         <header className="sticky top-0 z-40 glass/80 border-b border-border/40 backdrop-blur-sm">
           <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Link to="/" className="flex items-center gap-2">
+              <Link
+                to="/"
+                className="flex items-center gap-2 p-1.5 -m-1.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 <span className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
                   <Settings className="w-5 h-5 text-primary" />
                 </span>
@@ -366,7 +378,7 @@ function AdminLayout() {
         <main className="max-w-6xl mx-auto px-4 py-6">
           {activeTab === "kpis" ? (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h1 className="text-2xl font-semibold flex items-center gap-2">
                     KPIs & Operaciones <BarChart3 className="w-6 h-6 text-primary" />
@@ -378,7 +390,7 @@ function AdminLayout() {
                 <button
                   onClick={loadKpis}
                   disabled={loadingKpis}
-                  className="btn-base btn-secondary"
+                  className="btn-base btn-secondary shrink-0"
                 >
                   <RefreshCw className={`w-4 h-4 mr-2 ${loadingKpis ? "animate-spin" : ""}`} />
                   Actualizar
@@ -663,7 +675,7 @@ function AdminLayout() {
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
                 <div>
                   {(() => {
                     const cat = CATEGORIES.find((c) => c.id === activeTab);
@@ -679,7 +691,7 @@ function AdminLayout() {
                     );
                   })()}
                 </div>
-                <button onClick={openAddModal} className="btn-base btn-primary">
+                <button onClick={openAddModal} className="btn-base btn-primary shrink-0">
                   <Plus className="w-4 h-4 mr-2" /> Agregar mensaje
                 </button>
               </div>
@@ -715,16 +727,20 @@ function AdminLayout() {
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <button
+                            type="button"
                             onClick={() => openEditModal(msg)}
                             className="btn-base btn-secondary p-2"
                             title="Editar"
+                            aria-label="Editar mensaje"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
+                            type="button"
                             onClick={() => deleteMessage(msg.id)}
                             className="btn-base btn-secondary p-2 text-red-500 hover:bg-red-500/10"
                             title="Eliminar"
+                            aria-label="Eliminar mensaje"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -741,22 +757,38 @@ function AdminLayout() {
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="glass rounded-3xl p-6 w-full max-w-2xl animate-rise max-h-[80vh] overflow-y-auto">
+        <div
+          onClick={() => setShowModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="glass rounded-3xl p-6 w-full max-w-2xl animate-rise max-h-[85dvh] overflow-y-auto"
+          >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">
                 {editingMessage ? "Editar mensaje" : "Nuevo mensaje"}
               </h2>
-              <button onClick={() => setShowModal(false)} className="btn-base btn-secondary p-2">
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                aria-label="Cerrar"
+                className="btn-base btn-secondary p-2"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="space-y-4">
               <label className="block">
-                <span className="text-xs uppercase tracking-widest text-muted-foreground">
-                  Mensaje
-                </span>
+                <div className="flex justify-between items-baseline">
+                  <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                    Mensaje
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {modalText.length} caracteres
+                  </span>
+                </div>
                 <textarea
                   value={modalText}
                   onChange={(e) => setModalText(e.target.value)}
@@ -771,10 +803,15 @@ function AdminLayout() {
               </p>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border/40">
-                <button onClick={() => setShowModal(false)} className="btn-base btn-secondary">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="btn-base btn-secondary"
+                >
                   Cancelar
                 </button>
                 <button
+                  type="button"
                   onClick={saveMessage}
                   disabled={saving || !modalText.trim()}
                   className="btn-base btn-primary"
@@ -794,12 +831,20 @@ function AdminLayout() {
 
       {/* Change Password Modal */}
       {showChangePasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="glass rounded-3xl p-6 w-full max-w-md animate-rise">
+        <div
+          onClick={() => setShowChangePasswordModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="glass rounded-3xl p-6 w-full max-w-md animate-rise max-h-[85dvh] overflow-y-auto"
+          >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Cambiar contraseña</h2>
               <button
+                type="button"
                 onClick={() => setShowChangePasswordModal(false)}
+                aria-label="Cerrar"
                 className="btn-base btn-secondary p-2"
               >
                 <X className="w-4 h-4" />
@@ -846,12 +891,14 @@ function AdminLayout() {
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border/40">
                 <button
+                  type="button"
                   onClick={() => setShowChangePasswordModal(false)}
                   className="btn-base btn-secondary"
                 >
                   Cancelar
                 </button>
                 <button
+                  type="button"
                   onClick={handleChangePassword}
                   disabled={cpLoading}
                   className="btn-base btn-primary"
@@ -868,6 +915,6 @@ function AdminLayout() {
           </div>
         </div>
       )}
-    </StepShell>
+    </>
   );
 }

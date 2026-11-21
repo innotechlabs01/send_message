@@ -37,8 +37,9 @@ function CategoryStep() {
           return (
             <button
               key={cat.id}
+              type="button"
               onClick={() => select(cat.id)}
-              className={`cat-${cat.accent} glass step-card rounded-3xl p-6 text-left animate-rise group cursor-pointer relative overflow-hidden ${
+              className={`cat-${cat.accent} glass step-card rounded-3xl p-4 sm:p-6 text-left animate-rise group cursor-pointer relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 selected ? "!border-primary/40" : ""
               }`}
               style={{ animationDelay: `${i * 60}ms` }}

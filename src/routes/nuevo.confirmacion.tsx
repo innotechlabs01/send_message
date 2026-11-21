@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useRef, useCallback } from "react";
 
 import { StepHeader } from "@/components/StepHeader";
-import { StepFooter, StepShell } from "@/components/StepShell";
+import { StepShell } from "@/components/StepShell";
 import { getPaymentStatus } from "@/lib/bold";
 import { getPaymentStatusCopy, type PaymentState } from "@/lib/payment-status";
 import { EdgeFunctionError } from "@/lib/supabase-functions";
@@ -190,7 +190,7 @@ function PaymentConfirmation() {
   const isGatewayBlocked = status === "gateway_blocked";
 
   return (
-    <StepShell withFooter>
+    <StepShell>
       <StepHeader
         step={4}
         total={4}
@@ -229,7 +229,7 @@ function PaymentConfirmation() {
                   <p className="mt-1 text-sm text-amber-700 font-mono">{gatewayReason}</p>
                   {gatewayRaw && Object.keys(gatewayRaw).length > 0 && (
                     <details className="mt-2">
-                      <summary className="text-xs text-amber-600 cursor-pointer">
+                      <summary className="text-xs text-amber-600 cursor-pointer py-2 -my-2 inline-block">
                         Ver detalles técnicos
                       </summary>
                       <pre className="mt-2 text-xs bg-amber-100 p-2 rounded overflow-auto">
@@ -242,30 +242,38 @@ function PaymentConfirmation() {
             </div>
 
             {isPending && timedOut && (
-              <button
-                type="button"
-                onClick={startPolling}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                <RefreshCw className="h-4 w-4" />
+              <button type="button" onClick={startPolling} className="btn-base btn-primary">
+                <RefreshCw className="h-4 w-4 mr-2" />
                 Verificar ahora
               </button>
             )}
 
             {(status === "failure" || isGatewayBlocked) && !isPending && (
-              <Link
-                to="/nuevo/pago"
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                {isGatewayBlocked ? "Intentar con otro método" : "Volver a intentar"}
-              </Link>
+              <div className="flex flex-col sm:flex-row gap-3 mt-2">
+                <Link to="/nuevo/pago" className="btn-base btn-primary">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  {isGatewayBlocked ? "Intentar con otro método" : "Volver a intentar"}
+                </Link>
+                <Link to="/" className="btn-base btn-secondary">
+                  Volver al inicio
+                </Link>
+              </div>
             )}
 
             {status === "success" && (
-              <p className="mt-4 text-sm text-muted-foreground">
-                El mensaje se enviará automáticamente. Puedes cerrar esta página.
-              </p>
+              <div className="space-y-4 mt-2">
+                <p className="text-sm text-muted-foreground">
+                  El mensaje se enviará automáticamente. Puedes cerrar esta página.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Link to="/" className="btn-base btn-secondary">
+                    Volver al inicio
+                  </Link>
+                  <Link to="/nuevo/categoria" className="btn-base btn-primary">
+                    Crear otro mensaje
+                  </Link>
+                </div>
+              </div>
             )}
 
             {lastPolled && (
@@ -276,10 +284,6 @@ function PaymentConfirmation() {
           </div>
         </div>
       </main>
-
-      <StepFooter>
-        <></>
-      </StepFooter>
     </StepShell>
   );
 }

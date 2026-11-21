@@ -211,22 +211,36 @@ function MessageStep() {
       )}
 
       <div className="space-y-3">
-        {loading && freshMessages.length === 0
-          ? Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="glass rounded-2xl p-5 h-24 relative overflow-hidden">
-                <div className="absolute inset-0 animate-shimmer" />
-              </div>
-            ))
-          : freshMessages.map((m, i) => (
-              <MessageItem
-                key={m}
-                index={i + 1 + pinned.length}
-                message={m}
-                onPick={() => pick(m)}
-                onTogglePin={() => togglePin(m)}
-                delay={i * 60}
-              />
-            ))}
+        {loading && freshMessages.length === 0 ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="glass rounded-2xl p-5 h-24 relative overflow-hidden">
+              <div className="absolute inset-0 animate-shimmer" />
+            </div>
+          ))
+        ) : !loading && freshMessages.length === 0 ? (
+          <div className="glass rounded-2xl p-8 text-center space-y-3">
+            <p className="text-muted-foreground">No pudimos cargar mensajes</p>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              className="btn-base btn-secondary mx-auto cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Reintentar
+            </button>
+          </div>
+        ) : (
+          freshMessages.map((m, i) => (
+            <MessageItem
+              key={m}
+              index={i + 1 + pinned.length}
+              message={m}
+              onPick={() => pick(m)}
+              onTogglePin={() => togglePin(m)}
+              delay={i * 60}
+            />
+          ))
+        )}
       </div>
 
       <div className="fixed bottom-0 inset-x-0 z-40 bg-card border-t border-border/60 shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.08)]">
@@ -286,7 +300,8 @@ function MessageItem({
         type="button"
         onClick={onTogglePin}
         aria-label={pinned ? "Desanclar" : "Anclar"}
-        className={`relative before:content-[''] before:absolute before:-inset-1.5 shrink-0 w-9 h-9 rounded-full grid place-items-center border transition-colors ${
+        aria-pressed={pinned}
+        className={`relative before:content-[''] before:absolute before:-inset-1.5 shrink-0 w-9 h-9 rounded-full grid place-items-center border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
           pinned
             ? "bg-primary text-primary-foreground border-transparent"
             : "bg-card text-muted-foreground border-border hover:text-foreground hover:border-primary/40"

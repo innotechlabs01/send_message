@@ -28,7 +28,7 @@ function Landing() {
         <BrandMark />
         <Link
           to="/nuevo/categoria"
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors p-2.5 -m-2.5 rounded-lg inline-flex items-center min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           Crear mensaje
         </Link>
@@ -40,7 +40,7 @@ function Landing() {
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
             Mensajes únicos generados con IA
           </div>
-          <h1 className="text-5xl md:text-7xl font-semibold tracking-tight leading-[1.05]">
+          <h1 className="text-4xl sm:text-5xl md:text-7xl font-semibold tracking-tight leading-[1.05]">
             Las palabras justas
             <br />
             <span className="text-gradient">para los momentos que importan.</span>

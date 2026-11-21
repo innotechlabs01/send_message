@@ -21,8 +21,12 @@ export function getStartOfToday(): Date {
 }
 
 export const messageDetailsSchema = z.object({
-  recipient: z.string().trim().min(1, "El destinatario es obligatorio").max(80),
-  sender: z.string().trim().min(1, "Indica quién lo envía").max(80),
+  recipient: z
+    .string()
+    .trim()
+    .min(1, "El destinatario es obligatorio")
+    .max(80, "Máximo 80 caracteres"),
+  sender: z.string().trim().min(1, "Indica quién lo envía").max(80, "Máximo 80 caracteres"),
   phoneFrom: z
     .string()
     .trim()
@@ -56,6 +60,7 @@ export interface MessageInputProps {
   error?: string;
   phone?: boolean;
   compact?: boolean;
+  hint?: string;
 }
 
 export function MessageInput({
@@ -66,6 +71,7 @@ export function MessageInput({
   error,
   phone,
   compact = false,
+  hint,
 }: MessageInputProps) {
   const filled = value.trim().length > 0 && !error;
   return (
@@ -79,16 +85,29 @@ export function MessageInput({
         {label}
       </span>
       <input
+        type={phone ? "tel" : "text"}
+        maxLength={phone ? 20 : 80}
+        aria-invalid={Boolean(error)}
         value={value}
         inputMode={phone ? "numeric" : undefined}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className={cn(
-          "w-full bg-input/60 border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary transition-colors",
+          "w-full bg-input/60 border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring/40 transition-colors",
           compact ? "mt-1.5 px-3 py-2.5 text-sm" : "mt-2 px-4 py-3",
           error ? "border-destructive" : filled ? "input-filled" : "border-border",
         )}
       />
+      {hint && !error && (
+        <span
+          className={cn(
+            "text-muted-foreground block",
+            compact ? "text-[11px] mt-1" : "text-xs mt-1.5",
+          )}
+        >
+          {hint}
+        </span>
+      )}
       {error && (
         <span
           className={cn("text-destructive block", compact ? "text-[11px] mt-1" : "text-xs mt-1.5")}
@@ -126,8 +145,9 @@ export function DateField({ value, onChange, error, compact = false }: DateField
         <PopoverTrigger asChild>
           <button
             type="button"
+            aria-invalid={Boolean(error)}
             className={cn(
-              "w-full bg-input/60 border rounded-xl text-left flex items-center justify-between gap-3 transition-colors focus:outline-none focus:border-primary",
+              "w-full bg-input/60 border rounded-xl text-left flex items-center justify-between gap-3 cursor-pointer transition-colors focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring/40",
               compact ? "mt-1.5 px-3 py-2.5 text-sm" : "mt-2 px-4 py-3",
               error ? "border-destructive" : selected ? "input-filled" : "border-border",
               !selected && "text-muted-foreground/70",
@@ -142,7 +162,6 @@ export function DateField({ value, onChange, error, compact = false }: DateField
           </button>
         </PopoverTrigger>
         <PopoverContent
-          side="top"
           align="end"
           className="w-auto p-0 rounded-2xl border-border/70 shadow-[var(--shadow-card)] bg-popover"
         >
@@ -220,9 +239,10 @@ export function MessageOptionCard({
       <button
         type="button"
         onClick={onTogglePin}
+        aria-pressed={pinned}
         aria-label={pinned ? "Desanclar" : "Anclar"}
         className={cn(
-          "relative before:content-[''] before:absolute before:-inset-1.5 shrink-0 rounded-full grid place-items-center border transition-colors",
+          "relative before:content-[''] before:absolute before:-inset-1.5 shrink-0 rounded-full grid place-items-center border cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors",
           compact ? "w-8 h-8" : "w-9 h-9",
           pinned
             ? "bg-primary text-primary-foreground border-transparent"
