@@ -25,7 +25,7 @@ export function StepHeader({ step, total, title, subtitle, backTo, backLabel = "
         <div className="mb-4">
           <Link
             to={backTo}
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-2 p-1.5 -m-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             {backLabel}

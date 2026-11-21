@@ -202,27 +202,27 @@ export function MessageOptionCard({
       )}
       style={!compact && delay ? { animationDelay: `${delay}ms` } : undefined}
     >
-      {typeof index === "number" && (
-        <span className="shrink-0 w-8 h-8 rounded-full icon-duotone grid place-items-center text-sm font-medium tabular-nums">
-          {index}
-        </span>
-      )}
       <button
         type="button"
         onClick={onSelect}
         className={cn(
-          "flex-1 text-left leading-relaxed",
-          compact ? "text-sm" : "text-foreground/95",
+          "flex-1 flex items-start -m-2 p-2 rounded-xl text-left leading-relaxed cursor-pointer",
+          compact ? "gap-3 text-sm" : "gap-4 text-foreground/95",
         )}
       >
-        {message}
+        {typeof index === "number" && (
+          <span className="shrink-0 w-8 h-8 rounded-full icon-duotone grid place-items-center text-sm font-medium tabular-nums">
+            {index}
+          </span>
+        )}
+        <span className="flex-1 pt-0.5">{message}</span>
       </button>
       <button
         type="button"
         onClick={onTogglePin}
         aria-label={pinned ? "Desanclar" : "Anclar"}
         className={cn(
-          "shrink-0 rounded-full grid place-items-center border transition-colors",
+          "relative before:content-[''] before:absolute before:-inset-1.5 shrink-0 rounded-full grid place-items-center border transition-colors",
           compact ? "w-8 h-8" : "w-9 h-9",
           pinned
             ? "bg-primary text-primary-foreground border-transparent"

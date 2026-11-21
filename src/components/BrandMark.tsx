@@ -5,7 +5,7 @@ export function BrandMark({ className = "" }: { className?: string }) {
   return (
     <Link
       to="/"
-      className={`inline-flex items-center gap-2 group ${className}`}
+      className={`inline-flex items-center gap-2 p-1.5 -m-1.5 rounded-lg group ${className}`}
       aria-label="ConSentido — Inicio"
     >
       <span className="w-8 h-8 rounded-lg glass grid place-items-center transition-transform group-hover:scale-105">

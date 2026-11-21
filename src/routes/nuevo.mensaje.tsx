@@ -272,16 +272,21 @@ function MessageItem({
       className="glass step-card rounded-2xl p-5 flex items-start gap-4 animate-rise group"
       style={{ animationDelay: `${delay}ms` }}
     >
-      <span className="shrink-0 w-8 h-8 rounded-full icon-duotone grid place-items-center text-sm font-medium tabular-nums">
-        {index}
-      </span>
-      <button onClick={onPick} className="flex-1 text-left leading-relaxed text-foreground/95">
-        {message}
+      <button
+        type="button"
+        onClick={onPick}
+        className="flex-1 flex items-start gap-4 -m-2 p-2 rounded-xl text-left leading-relaxed text-foreground/95 cursor-pointer"
+      >
+        <span className="shrink-0 w-8 h-8 rounded-full icon-duotone grid place-items-center text-sm font-medium tabular-nums">
+          {index}
+        </span>
+        <span className="flex-1 pt-0.5">{message}</span>
       </button>
       <button
+        type="button"
         onClick={onTogglePin}
         aria-label={pinned ? "Desanclar" : "Anclar"}
-        className={`shrink-0 w-9 h-9 rounded-full grid place-items-center border transition-colors ${
+        className={`relative before:content-[''] before:absolute before:-inset-1.5 shrink-0 w-9 h-9 rounded-full grid place-items-center border transition-colors ${
           pinned
             ? "bg-primary text-primary-foreground border-transparent"
             : "bg-card text-muted-foreground border-border hover:text-foreground hover:border-primary/40"
