@@ -24,7 +24,7 @@ function ConfirmStep() {
   const [leaving, setLeaving] = useState(false);
 
   if (!state.hydrated) return <StepShell withFooter />;
-  if (!category || !d.message) return <Navigate to="/nuevo/categoria" />;
+  if (!leaving && (!category || !d.message)) return <Navigate to="/nuevo/categoria" />;
 
   function field(name: keyof typeof d, value: string) {
     if (errors[name]) {

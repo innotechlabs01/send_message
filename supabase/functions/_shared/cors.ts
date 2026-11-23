@@ -6,7 +6,7 @@ export interface CorsOptions {
 
 const DEFAULT_ALLOWED_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
 const DEFAULT_ALLOWED_HEADERS = ["authorization", "x-client-info", "apikey", "content-type"];
-const DEFAULT_DEV_ORIGINS = ["http://localhost:3000", "http://localhost:5173"];
+const DEFAULT_DEV_ORIGINS = ["http://localhost:3000", "http://localhost:5173", "http://localhost:8080"];
 
 function resolveAllowedOrigins(): string[] {
   const envVal = Deno.env.get("ALLOWED_ORIGINS");

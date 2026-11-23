@@ -238,6 +238,10 @@ Deno.serve(async (req: Request) => {
           )
         : undefined;
 
+      const boldCallbackUrl = callbackWithRef.startsWith("http://localhost")
+        ? `https://consentiido.vercel.app/nuevo/confirmacion?reference=${encodeURIComponent(data.referenceId)}`
+        : callbackWithRef;
+
       const boldRequestBody = {
         amount_type: "CLOSE",
         amount: {
@@ -247,7 +251,7 @@ Deno.serve(async (req: Request) => {
         },
         reference: data.referenceId,
         description: data.description ?? `ConSentido - ${data.items.length} mensaje(s)`,
-        callback_url: callbackWithRef,
+        callback_url: boldCallbackUrl,
         payer_email: data.customer?.email,
       };
 
